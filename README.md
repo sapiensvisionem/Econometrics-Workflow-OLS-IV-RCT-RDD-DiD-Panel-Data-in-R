@@ -7,6 +7,6 @@
 - difference in differences
 - panel data
 
-2. Replication of a study in *Econometrica* journal
+2. Replication of a study in *American Economic Review (AER)* journal
 - Glitz, Albrecht and Erik Meyersson. 2020. "Industrial Espionage and Productivity." American Economic Review, 110(4):1055-1103.
 - Impact of intellectual theft on productivity spillover
