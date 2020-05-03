@@ -1,0 +1,655 @@
+---
+title: "Applied Microeconometrics""
+author: "Ji Hun Lee"
+date: "April 13, 2020"
+output: rmarkdown::github_document
+---
+
+# Introduction
+
+The goal of this study is to establish causal effect of *education on wages*. Note that this is fundamentally a different question from "Can we use  *education to forecast wage*" (predictive) or "How does *education vary with wage*" (descriptive).
+
+Our data is collected via only observing the outcome - *wage* - in the actual choice scenario of *enrolling in higher education*. It would be great if we can construct counterfactual outcomes to answer the question: what would happen if *an individual had a different educational attainment*. Not being able to observe disparate outcomes *(educated vs uneducated)* at the same time for the same individual experimental unit is hard.
+
+Assessing empirical data, Causal inference is the best done with rando mized control trials because they generate counterfactual data. However, most often we only have observational data. This causes identification problems because many different theoretical models and many diffferent causal interpretations can be consistent with the same data.
+
+Some other highlights are:
+- *I will use college perfor
+mance data to investigate the relationship between academic performance in college, gender, and cognitive ability.*
+- *I will use housing data to determine the causal effect of house features on the price*
+
+
+# Data Inspection and Variables
+The first dataset is *the NLS sample of young men containing information on hourly wage in cents (wage) and years of schooling (educ) in 1976*. Since we want to estimate the causal effect of *education on wages*, our response variable is *wage* and our main variable of interest is *educ*. 
+
+The other datasets have a view below.
+
+```{r}
+library(haven)
+library(tidyverse)
+
+df <- read_dta('C:/Users/jihun/Downloads/applied_microeconometrics/CARD.DTA')
+glimpse(df)
+df2 <- read_dta('C:/Users/jihun/Downloads/applied_microeconometrics/gpa2.dta')
+glimpse(df2)
+df3 <- read_dta('C:/Users/jihun/Downloads/applied_microeconometrics/hprice1.dta')
+glimpse(df3)
+```
+
+## Data Restriction
+- Measurement Requirements
+- Non-random experiment
+
+As discussed earlier, we need to keep in mind of survey design restriction because it can affect the assumptions needed for oLS to have valid results. For instance, *in the first dataset, IQ needs to be measured prior to education because education can increase intelligence and dilute the effect of education. We want to measure KWW before high school such that we avoi having a measure of ability that is affected by education. For example, one could imagine that ability is increasing more for those who are in high school or college instead of having dropped out.*
+
+We also need to be mindful of whether our variable of interest is something that can be chosen (e.g. gender is something not chosen). In the case of gender, the interpretation of coefficient is, difference between average of male response and female response.
+
+```{r}
+ggplot(df2, aes(x=gender, y=gpa, fill=gender)) +
+  geom_box() +
+  theme_minimal() +
+  labs(title='Boxplot',
+       x = 'gender',
+       y = 'gpa')
+  
+```
+
+When data are based on non-random observational data, *For college performance data, we suspect that there is a lurking variable such as motivation or low psychic cost of stuying that affects both GPA and SAT score, and the non-random selection into college can hide the effect of this variable.  We will need to control for these kinds of variables to make the zero conditional mean expectation assumption of OLS credible.*
+
+It helps to think about what would be the ideal experiment this kind of data. *We can randomize a person's gender at the time of college entrance. This would help estimmate the effect of all that comes with being female during college, but not before college.*
+
+*However, such experiemnt would be infeasible and unethical. One can argue both ways whether estimating the causal effect of being female is meaningful. How useful such estimation is can depend on whether we are able to make choices or change the values on our gender.*
+
+Can we suspect variable to be truthfully reported by subjects? What issues can arise if variable is measured with error. How does this affect OLS estimates?  Underreporting of variable like drinking habit can cause inconsistent OLS estimates. Coefficient will be biased if there is a correlation between measurement error and reported drinking. Measurement error always increases standard errors. Measurement error's internal variance amplifies the uncertainty of estimate. Measurement error like this can cause attenuation bias, causing estimate to shrink toward zero.
+
+# Identification Strategy
+
+A good identification strategy of causal effect is a clearly specified source of identifying variation in a causal variable, combined with particular econometric technique to exploit this information. Randomized trials ensure that outcomes in a control group capture the counterfactual in a treatment group, but RCT are rare in practice. 
+
+Econometrics applies model to data and rigorously testing the assumptions of model to make a statement about causality. More specifically, econometrics attempts to address challenges of observational data: confounding effects (omitted variables), simultaneity, and correlation doesnt imply causation. In order to analyze observational studies, we can employ the following identification strategies.
+
+1. Regression controls for observable differences between comparison groups
+2. Instrumental Variable and Regression Discontinuity use exogenous source of variation
+3. Difference in Differences uses pre-post comparisons of control and treatment groups to control for unobservable differences
+4. Panel data techniques: use pre-post comparisons on the same unit of observvation to control for fixed unobservable differences
+
+# I. Ordinary Least Squares
+
+Regression Technique makes inferences about unknown population slope coefficients - *in this case the effect of education on wage*. For causal inference, we need to ccontrol for observable differences between comparison groups.
+
+
+## Control Variable
+
+In order to reduce omitted variable bias, we need to include control variables into our regression model. We will control for *intelligence* of our subjects to control for systematic variation of wage with respect to subject's *intelligence*.
+```{r}
+library(jtools)
+lmod1 <- lm(lwage~educ+KWW, data=df)
+lmod1$call$formula
+
+```
+
+### Overcontrolling
+
+We need to ensure whether our model has any Overcontrolling issues. In our case, there is *no* overcontrolling. For example, we don't need to include productivity as a variable when we already have education, IQ. 
+
+## Data Preprocessing
+
+We need to choose data preprocessing before running our econometric methods. *In our example, we need to decide whether a categorical or numeric variable is better suitable. Depending on how we encode our educ variable as numeric or categorical, interpretation becomes very different. For instance, is education better in terms of years in education or degree earned? College degree will be educ >= 16, HS will be >= 12 and <16. The question will ask whether the wage only responds to the degree i.e. whether wage jumps at the moment an individual obtains a degree and do not change everywhere else, or the wage increases linearly with years of education.*
+
+ Log Transformation: can be used to normalize the response variable, but changes *wage* to percentages, not levels. The choice of log-transformation depends on whether we will define the response in terms of percentage or original unit.
+   - benefit 1: often fit CLM assumption better -> normalize error and fix heteroskedasticity
+   - benefit 2: can be a better, more plausible functional form in linear regression
+   - benefit 3: easier to interpret - approximate percentage changes
+   - WARNING: if you log,log(10,000) - log(1) = 9.2 whereas log(1,500,000) - log(80,000) = 0.63. This implies variation in the data will be due to whether someone is - for example in the job market, rather than effect on wages.
+   
+*Our model will log-transform the wage variable.*
+
+```{r}
+library(tidymodels)
+df <-
+  recipe(lwage ~ educ + KWW + wage + age + exper, data=df) %>%
+    step_mutate(COL = ifelse(educ >= 16, 1, 0), # college degree is people who have more than 16 years of educatioanl years
+         HS = ifelse(educ >= 12 & educ < 16, 1, 0)) %>%  # high school degree is people who have at least 12 years
+    prep(data=df) %>%
+    juice()
+glimpse(df)
+```
+
+## Interpretation of Coefficients
+```{r}
+print(summ(lmod1))
+print(summ(lm(lwage ~ COL + HS + KWW, data=df)))
+kable(tidy(wage.random), digits=4, caption=
+      "The random effects results for the wage equation")
+
+```
+
+Interpretation of coefficient needs to be in the presence of control. We need to state, 'holding control's value constant/fixed, every unit of Y is increased/decreased by every unit change in X on average'. If  Y is logged, then change in X by 1 Y changes by 100\*exp(beta\*X) percentage; if coefficiet is 0.029 then Y changes by 2.9% 
+
+As shown in the table above, the coefficient for *educ is 0.02.*
+*As shown in the second table above, the coefficient for HS and COL are 0.13 and 0.2, respectively.*
+We can interpret the number *0.02* as a *'person would have received 2.1% higher wage on average if the person had one year longer education and had the same KWW.'* The estimated coefficient measures the relationship between *lwage* and the unique variation in *educ* - partialling out.
+    
+Is it statistically different from zero, vary signiifor in other words, can we reject the null hypothesis that beta = 0? does it vary significantly with response? if it is not, we dont have to allow for the variable. *Yes, it is statistically significant.*
+
+*F-test rejects the null hypothesis that the coefficients on the two types of education return are equal.*
+
+```{r}
+print(summ(lm(price ~ sqrft + bdrms + lotsize, data=df3)))
+```
+The table shows the regression result. The coefficient 0.12 on sqrft means that the price would have been 0.12x1000 dollars higher if the unit were one-square-feet larger while the number of bedrooms and the size of lot stayed the sasme. We can interpret other coefficients simiarly.
+
+### Functional Form
+
+We need to check the functional relationship between our numeric variable of interest and response. *In our case, the linear relationship seems to hold.*
+```{r}
+
+df1 <- 
+  df %>%
+  mutate(KWW_bins =  predict(
+    discretize(df$KWW, na.rm=T, infs=F, cuts=3),
+    df$KWW))
+
+df1 %>%
+  ggplot(aes(x=educ, y=lwage)) +
+    geom_count() +
+    geom_smooth(method='loess') +
+    labs(title='Scatterplot',
+         subtitle='Explore Functional Relationship',
+         x='Education in Years',
+         y='Log Wage') +
+    theme_minimal() +
+    facet_wrap(~KWW_bins, ncol=2)
+
+```
+
+### Interaction Effects
+  
+We need to check whether there is any interaction effect on the variable of interest with any other control variables. *In our case, we want to check for interaction between the number of years in schooling and degrees. For instance, we want to know if additional year of schooling for high school degree is statistically varying with lwage. We can see that having additional year of schooling after HS degree is not statistically significant on wage level, but it is for college degree. We test whether the coefficient for interaction is zero to check whether the return to education differs by years of schooling. The p-value for educ x college is quite lower than the usual threshold of 0.05 and we can think of this as an evidence that the return to education differs according to the years of schooling after college degree. The return to education is about 42 units higher compared to the one with zero schooling*
+
+```{r}
+summ(lm(wage ~ educ + KWW + educ*HS + educ*COL, data=df))
+```
+
+*As for the housing data*, we can look at the variable of interest's significance by investigating its interaction effect with all other variables.
+```{r}
+summ(lm(price ~ sqrft*colonial + bdrms*colonial + lotsize*colonial - colonial, data=df3))
+```
+*The coefficient for interaction of lotsize and colonial is significant, but once we remove the insignificant interaction terms it becomes insignifican (such as interactions with sqrft and bdrms). So we can conclude that there is no evidence that the effect of housing characteristics on price differs across colonial. Again, this is expected as the style itself is not as important as other key factors affecting housing price.*
+
+### Multicollinearity
+
+We should always check for multicolinearity in the data because in the presence of collinearity, there is little unique variation in each X and it is hard to disentangle effect of one X from other correlated X. Linear regression measure partial effect of variable holding all other variables constant, but when there is a high collinearity, It makes inference more difficult because it causes both bias and increases standard error in our coefficients. *There is no pronounced collinearity in our data.*
+
+```{r}
+library(GGally)
+print(ggcorr(df, method = c("everything", "pearson")))
+print(ggpairs(df, progress=F))
+```
+
+### Omitted Variables
+
+Omitted Variables create bias in coefficients. 
+  - When correlation between X1 and X2 is positive and omitted variable has positive slope, then it inflates slope.
+  - When correlation between X1 and X2 is negative and omitted variable has negative slope, then it inflates slope. 
+  - When correlation between X1 and X2 is positive and omitted variable has negative slope, then it deflates slope.
+  - When correlation between X1 and X2 is negative and omitted variable has positive slope, then it deflates slope.
+We can see what the sign of bias was by how the coefficient changed. If it increased, then bias was negative. If it decreased, then bias was positive. If coefficient on control is positive and bias is positive, then correlation between control and variable must be positive. If new control is not significant and other coefficients do not change.
+  
+Omitted variable is a problem because it splits the correlation between observed variable X1 and omitted variable X2. However, when two independent variables are uncorrelated, there is no omitted variable bias.
+
+One way to check omitted variable bias is to see how coefficients vary based on including the omitted variable. 
+```{r}
+lmod4 <- lm(lwage ~ HS + COL + KWW + age, data=df)
+summ(lmod4)
+```
+
+We check the sensitivity of coefficients and statistical significiance. *There is a little change in the coefficient values after inclusion of age control variable. Since the coefficients have increased, we can claim that the omitte variable bias was negative and deflated the true value of college's wage premium. Older people tend not to have college degree so there is a negative correlation between college degree and age. It is important to note that all the existing variables are still statistically significant after controlling for age variable.*
+
+The only way to remove omitted variable bias in the variable of interest is to add additional determinants of Y and control them.
+
+```{r}
+summ(lm(price ~ sqrft + bdrms + lotsize + colonial, data=df3))
+```
+*The coefficient on colonial is not significant - colonial does not have much effect on price, if we control for other variables. the coefficients on the other variables do not change much by the inclusion of colonial. This is expected as the characteristics sucha s the house size or the number of bedrooms affect housing price mainly through the ability to accommodate larger family and not through its correlation with the style of the house.*
+
+The omitted variable bias can be calculated by simply looking at the differences in the coefficients of the regressions with and without the control. The difference is the omitted variable biass. 
+
+## OLS Assumption Validation
+
+Validate assumtions
+  1. linear in parameters
+  2. random sampling
+  3. no perfect colliearity among variables
+  4, zero conditional mean needs to hold
+  5. homoscedasticity: error variance is not the same across all values of the independent variables
+  
+### Zero Conditional Mean
+
+Violation of this assumption causes a biased estimate.
+
+We prove coefficient is unbiased (4th assummption) by showing that for every combination of variable of interest and control (zero conditional mean assumption), mean value is around 0 by creating group_by table and see if there is any systematic variation. Also, we use fitted value versus residual plot and see if residuals are around 0 horizontal line. If there is a pattern, then there is an omitted variable bias which is creating systematic variation in response not accounted for by control or variable.
+
+Another way is to check the diagnostic plots, in particular residual vs fitted value plot to see if the mean of residuals per fitted value is zero.
+
+```{r}
+plot(lmod4)
+df %>%
+  mutate(residuals = residuals(lmod))
+  groupby(educ, KWW) %>%
+  summarise(conditional.mean = mean(residuals))
+
+
+```
+
+*As for the housing data, the coefficients are likely to be biased, since there are some important factors that affect housing prices that are missing here. One such variable could be proximity to the city center.* We should also consier if we could collect additional data on environmental factors, which control variables would I include to make the zero conditional mean assumption credible. *For example, the proximity to the city center may be an important factor. We would also like to collect data on neighborhood characteristics such as crime rate of the neighborhood.*
+
+
+## Precision of Estimates
+   
+Precision of estimates is dependent on:
+  - small collinearity
+  - large sample size 
+  - big variation within the variable of interest
+
+### Homoscedasticity Check
+
+Heteroskedasticity does not affect unbiasedness of OLS estimates but creates bias of variance estimation - standard errors. Standard error is a measure of how much beta will vary across different samples of the same size from the same population. Heteroskedasiticty can inflate or deflate standard errors because of presence of influential data points. when you have observations far from the mean (outliers), they are more informative of the slope coefficient and has greater weight in influencing its value. However, outliers are usually subject to a lot of noise, and random chance due to noise plays a big role in the value of coefficient in any given sample. Slope estimate will vary a lot across samples due to different values of the error term for the most informative observations, which are more likely to happen in the presence of heteroskedasticity.
+
+Check homoscedasticity assumption by White tests, and Breuch-Pagan test. Look at the standard errors and residual plot (see if there are large dispersions).
+
+Ignoring heteroskedasticity will imply we put too much faith iin beta from a given sample i.e. underestimate the variance. Because it depends a lot onstructure of data, it is not clear how heteroskedasticity affects variance.
+```{r}
+library(lmtest)
+library(het.test)
+
+# regress college GPA on a gender indicator
+lmod5 <- lm(colgpa ~ female + sat, data=df)
+summ(lmod5)
+
+# check the residuals density per gender
+df %>%
+  mutate(residuals = residuals(lmod5)) %>%
+  ggplot(aes(residuals)) + 
+      geom_density(aes(fill=factor(female))) +
+      labs(title='Density Plot of Residuals',
+           subtitle='Comparison by Gender Groups',
+           x='Residuals',
+           y='Density',
+           fill='Female')
+
+# Breuch Pagan Test
+bptest(lmod5) # run regression on squared residuals, get its R-squared and compute F-statistic, null hypothesis is homoscedasticity
+```
+*The residual distributions for men and women are similar, except that the residuals for women are slightly higher. This is because women have higher average GPA while the GPA has an upper bound of 4.0.*
+
+The Breusch-Pagan Heteroskedasticity test *rejects* the null hypothesis of homoskedasticity.
+
+Another way to detect heteroskedasticity is to visualize the residuals on fitted values and the variable of interest.
+```{r}
+plot(lm(price ~ sqrft + bdrms + lotsize + colonial, data=df3))
+resids <- residuals(lm(price ~ sqrft + bdrms + lotsize + colonial, data=df3))
+plot(df3$sqrft,resids,  main='Residual Plot for Sqrft', xlab='Sqrft', ylab='Residuals')
+plot(df3$bdrms, resids, main='Residual Plot for Sqrft', xlab='Sqrft', ylab='Residuals')
+
+```
+
+
+Ways to deal with heteroskedasticity:
+  - transform the model (e.g. log-transform)
+  - use robust standard errors
+  - specify the form of error variance and use WLS
+
+Run heteroskedasticity-robust linear regression or log transform the rresponse variable.
+```{r}
+# generate robust stanard errors
+coeftest(lmod5, vcov = vcovHC(lmod5))
+
+# robust linear regression
+library(robustbase)
+lmod6 <- lmrob(colgpa ~ female + sat, data=df)
+summary(lmod6)
+
+# logprice regression on housing data
+plot(lm(lprice ~ sqrft + bdrms + lotsize + colonial, data=df3))
+```
+*In the robust regression model, the standard errors do not change much, as we found the difference in the dispersion of the residual is not huge.*
+
+When using log transform, whether we use the transform would depend on how we believe the world works. *Do we expect that an increase in the characteristics of a house would cause increase in levels of the housing prices? Or do we expect that they would cause an increase in percentages? the answer will depend on your argument*
+
+## Evaluating Model
+
+We can use the following metrics to evaluate the fitness of our model.
+
+R-squared: fraction of sample variation in Y that is explained by all the explanatory ariables. It always increases when more variables are added to regression. Low R squared implies it is difficult to predict individual outcomes.
+
+Adjusted R-squared: may increase or decrease with addition of another regressor.
+
+We can also use these metricsc to determine whether some functional form of variable or interaction term is better or not based on whether adjusted R squared changes
+
+```{r}
+library(caret)
+postResample(pred = predict(lmod, df), obs = df$lwage)
+```
+
+We can evaluate model fit by the variable of interest such as colonial in housing data. To assess, which mmodel would perform better with and without control variable? We can look at the scatterplot of the observed data on the space of price and square feet, and we draw the fitted curves. If the fits are similar, prefer a simpler model.
+```{r}
+par(mfrow=c(2,1))
+
+df3 %>%
+ mutate(residuals1 = lm(price ~ sqrft + bdrms + lotsize + colonial, data=df3)$fitted.values,
+        residuals2 = lm(price ~ sqrft + bdrms + lotsize, data=df3)$fitted.values) %>%
+  filter(colonial==1)  %>%
+  dplyr::select(c(sqrft, price, residuals1, residuals2)) %>%
+  melt(id='sqrft') %>%
+  ggplot(aes(x=sqrft, y=value)) +
+    geom_point(aes(col=variable, shape=variable)) +
+    geom_line(aes(col=variable))
+
+df3 %>%
+ mutate(residuals1 = lm(price ~ sqrft + bdrms + lotsize + colonial, data=df3)$fitted.values,
+        residuals2 = lm(price ~ sqrft + bdrms + lotsize, data=df3)$fitted.values) %>%
+  filter(colonial==0)  %>%
+  dplyr::select(c(sqrft, price, residuals1, residuals2)) %>%
+  melt(id='sqrft') %>%
+  ggplot(aes(x=sqrft, y=value)) +
+    geom_point(aes(col=variable, shape=variable)) +
+    geom_line(aes(col=variable))
+
+```
+The fits look similarand the performance of the fit does not seem to differ across different values of colonial. In the subset of colonial=0, the model shows a little bit of overfitting. Given that the fits are similar, prefer a simpler model.
+____________________________________________________________________________________________________________________________________________________
+# Randomized Control Trial
+
+
+
+
+
+_______________________________
+# Instrumental Variable Regression
+
+IV is an alternative method to OLS or randomized experiment. Randomized experiment is often not feasible, and OLS doesnt always have all unobserved confounding variables. For example, let us consider a model relating education and wage. OLS assumes zero conditional mean and that the only effect of X on Y is through beta x X. However, we need to account for ability that can induce a correlation between X and error. In this case, X is endogenous, and people with high ability are likely to have high education. This renders OLS estimator inconsistent and cannot be abscribed causal interpretation.
+
+IV is a way to deal with endogeneity bias used when a model has an endogenous variable X.  In theory, it its able to detect movements in X that are uncorrelated with error U, and use these to estimte beta. IV is used in cases where the following cases are of concern when 1) omitted variable bias 2) selection bias 3) simultaneity of Y and X 4) error in measurement can cause nonzero
+
+
+## Dataset
+This data set investigates the causal effect of compusory eucation on earnings. Their identification is based on the fact that, given laws on school enrollment mandate that kids can enter school if their birthday is before January 1st of the year school starts and then can drop out at the completion of their 16th year, people born earlier in the year reach the minimum age for dropout before people born later in the calendar year and hence can dropout with less education. If the time of the year in which people are born affects wages only through this effect years of compulsory education then it is possible to use this exogenous variation to estimate the effect of compulsory schooling on earnings for the population affecte by these constraints. This is a natural-experiment setting, where arguable exogenous mechanism that generates variation in the treatment is well understood and created by the institution/laws. 
+```{r}
+df <- read_dta('C:/Users/jihun/Downloads/applied_microeconometrics/CENSUS7080.DTA')
+glimpse(df)
+View(df)
+```
+
+## Identification Methodology of Instrument Variable
+IV method can yield a consistent esstimator only if instrument is valid. We require instrument variable Z to be correlated with regressor X but uncorrelated with error U. We will later examine these two requirements as we fit the model. In practice, is often difficlt to obtain instrument that satifies both criteria. 
+
+IV estimate is obtained by Two-Stage Least Squares method (2SLS).
+- 1st stage:  regress instrument Z on X  and obtain estimated X. This step decomposes X into one component that is correlated with error U and another component that is uncorrelated with U since Z is ideally exogenous. It thus isolated the part of X that is correlated with the error term and rid of it.
+- 2nd stage: regress estimated X on Y. It only uses the exogenous (problem-free) component of X to estimate beta.
+
+There are benefits to the IV regression and they are:
+- IV estimator is asymptotically normally distributed and we can conduct hypothesis testing
+- IV estimator is consistent
+- standard errors are smaller when correlation between instrument Z and X is stronger
+- it can bypass omitted variable problem and yield a consistent estimator as long as we find an instrument uncorrelated with error/omitted variable
+- it can detect causality in reverse causality problem in simultaneity situation (e.g. Levitt's crime rate vs policing paper)
+
+## Practical Tips for Finding Instruments
+The most difficult practical part of IV model is finding the right instruments. Researchers find the right instrument by 1) random draws 2) natural randomness 3) institutional features. 
+
+## Fitting IV Model
+
+We can use the AER package to fit IV model. It is done in two stages.
+```{r}
+library(AER)
+library(stargazer)
+iv <- ivreg(LWKLYWGE ~ AGEQ+ EDUC + MARRIED + RACE + ENOCENT + ESOCENT + MIDATL + MT + NEWENG + SOATL + WNOCENT + WSOCENT| QOB + AGEQ + MARRIED + RACE + ENOCENT + ESOCENT + MIDATL + MT + NEWENG + SOATL + WNOCENT + WSOCENT, 
+            data = df)
+```
+outcome variable: log wage
+endogenous variable: Educational years
+instrument: age
+exogenous variables: race, marital status, location
+
+## Results
+We can present the coefficient values and standard errors.
+
+When IV estimate is "too big", then there are two possibilities:
+1) instrument is not valid and is correlated with error
+2) first stage regression is weak and inflating the IV estimate
+```{r}
+# focus solely on the coefficients controlling for heteroskedasticity
+coeftest(iv, vcov = vcovHC, type = "HC1")
+```
+```{r, message=FALSE, warning=FALSE}
+# heteroskedasticity adapted standard errors
+# gather robust standard errors in a list
+rob_se <- list(sqrt(diag(vcovHC(iv, type = "HC1"))))
+# generate table
+# stargazer(iv,
+#  header = FALSE, 
+#  type = "html",
+#  omit.table.layout = "n",
+#  digits = 3, 
+#  column.labels = c("IV: Compulsory Education on Wage"),
+#  dep.var.labels.include = FALSE,
+#  dep.var.caption = "Dependent Variable: Log Weekly Wage",
+#  se = rob_se)
+```
+
+## Assumptions
+State which assumptions need to be fulfilled for IV to be valid instrument for variable. Two conditions are 1) exogeneity (uncorrelated with error U) and 2) relevance (correlated with X). One condition implicit in the exogeneity assumption is exclusion: IV should not directly affect Y. Exogeneity implies IV should not affect Y through an omitted variable. One way to argue exogeneity condition holds true is if it is well randomized. The second condition must be that instruments must satisfy relevance. When an instrument is valid, estimators become consistent.
+
+### Warning: Problem of Too Many Instruments
+Having many instruments leads to having a large bias. As the number of instruments increases, F-statistic goes to zero and moves the coefficient towards the OLS coefficient. So we should refrain from using too many instruments and especially if they are weak instruments.
+
+### Check the Assumption of Relevance and Weak Instrument Problem
+When instruments are weak, all the estimate coefficients in the first stage are zero or nearly zero. Weak instruments explain very little of the variation in the endogenous variable. we can test whether instruments are weak by testing for significance of identifying instruments in the first stage. We obtain the F-statistic and check if it is larger than 10. Weak instruments imply a small first stage F-statistic. For single instrument, we conduct t-test and F-test for the joint significance of the excluded instruments
+
+One consequence of using instrument is that standard error will be large. Also, then the usual methods of inference are unreliable. The weaker is the instrument (low correlation between predictor and instrument), the smaller must endogeneity be in order for IV to be preferable. 
+```{r}
+# check instrument relevance for model (1)
+mod_relevance1 <- lm(EDUC ~ QOB + AGEQ + MARRIED + RACE + ENOCENT + ESOCENT + MIDATL + MT + NEWENG + SOATL + WNOCENT + WSOCENT, data = df)
+
+linearHypothesis(mod_relevance1, 
+                 "QOB = 0", 
+                 vcov = vcovHC, type = "HC1")
+```
+
+Always report the first stage. Ask two questions:
+1) Does it make sense?
+2) Do the coefficients have the right magnitude and sign?
+
+Never use the weak instruments from the first stage regression.
+
+### Test Exogeneity
+
+One major consequence of IV estimate's endogeneity is that its asymptotic bias is worse than OLS bias. A small correlation between the instrument and the error could cause a large bias if the instrument is weak.  If we dont have exogeneity, then IV estimator will be biased and will have high SE.
+
+If instrument is weak and is not exogenous, then the IV estimator can be very misleading. In this case, OLS is biased but we know the direction and sign of bias, then we may use the OLS estimato as the bound of the true value. For example, if we know the OLS estimator is biased upward, then we can think of OLS as the upper bound of the true value. 
+
+If instruments are overidentified, then it we can test for exogeneity exploiting the fact that if all the instruments are exogenous, then the estimates will be close to one another. Conduct the F-test for the null hypothesis that all instruments are jointly equal to zero, using the J=mF statistic with chi-squared distribution. If we have some instruments that are exogenous and others are endogenous, then J statistic will be large. Test by overidentification with the null hypothesis that all instruments are exogenous.
+
+```{r}
+# compute the J-statistic
+# unfortunately, this data has only one instrument, not two and we cannot test whether this is true
+iv_exo_test <- lm(residuals(iv) ~ QOB + AGEQ + MARRIED + RACE + ENOCENT + ESOCENT + MIDATL + MT + NEWENG + SOATL + WNOCENT + WSOCENT, data = df)
+
+exo_test <- linearHypothesis(iv_exo_test, 
+                               c("QOB = 0"), 
+                               test = "Chisq")
+exo_test
+```
+
+### Hausmann Test - OLS vs IV
+Is IV necessary? Given the choice, we should always choose OLS because it is unbiased and efficient. Hausman test can be used to see whether we should choose OLS or IV. Hausman Test can test the consistency of OLS. Its null hypothesis is that both IV and OLS estimates are equal and covariance is zero; alternate hypothesis is that they are not equal, and covariance is not equal to zero (IV is consistent and OLS is not). Hausman test checks if the difference between IV and OLS is statistically different from zero. If we cannot reject the null, use the OLS estimator. If we reject the null, use the IV estimator.
+
+```{r}
+summary(iv, vcov = sandwich, diagnostics = TRUE)
+```
+
+Weak instruments means that the instrument has a low correlation with the endogenous explanatory variable. This could result in a larger variance in the coefficient, and severe finite-sample bias. "The cure can be worse than the disease" (Bound, Jaeger, Baker, 1993/1995). See here for more details. From the help file for AER, it says it does an F-test on the first stage regression; I believe the null is that the instrument is weak. For the model you report, the null is rejected, so you can move forward with the assumption that the instrument is sufficiently strong.
+
+Wu-Hausman tests that IV is just as consistent as OLS, and since OLS is more efficient, it would be preferable. The null here is that they are equally consistent; in this output, Wu-Hausman is significant at the p<0.1 level, so if you are OK with that confidence level, that would mean IV is consistent and OLS is not.
+
+Sargan tests overidentification restrictions. The idea is that if you have more than one instrument per endogenous variable, the model is overidentified, and you have some excess information. All of the instruments must be valid for the inferences to be correct. So it tests that all exogenous instruments are in fact exogenous, and uncorrelated with the model residuals. If it is significant, it means that you don't have valid instruments (somewhere in there, as this is a global test). In this case, this isn't a concern. This can get more complex, and researchers have suggested doing further analysis
+
+The fact that Hausman test rejects the null hypothesis suggests IV regression is preferred for consistency of estimates. 
+
+### Heterogeneous Treatment and LATE estimate
+When treatments are heteogeneous to subjects, our estimate is LATE and it is on complies and always-takers only. It can make it difficult to generalize for different subpopulations - defiers and never-takers.
+
+## Internal and External Validity (Generalizability)
+Assuming internal validity, can we extrapolate the results to other units (e.g. location, period)? Can we also assume external validity? There is a tradeoff between the two. When sample is large, external validity increases.
+
+____________________________________________________________________________________________________________________
+# Regression Discotinuity
+## What is Regression Discontinuity?
+Run a regression in a situation where you have a discontinuity. How very similar people behave when they get dissimilar treatemnts. It exploits precise knowledge of the rules determining treatment. Works on quasi-experiment. Main identifying assumption: in a sufficiently near neighborhood around the discontinuity treatment is as good as randomly assigned. 
+
+It is essentially a bivariate analysis, and it only works on numeric vs numeric data. We also need a cutoff on X. Overall, this is very specific kind of problem.
+
+### applications:
+What kind of problems does it deal with? 
+1. effect of scholarship on students
+2. effect of class size on student performance
+3. effect of unions
+4. effect of air pollution
+
+## Problem Setup
+
+### Example Data
+
+```{r}
+df <- read_dta('C:/Users/jihun/Downloads/applied_microeconometrics/damonclark.dta')
+glimpse(df)
+summary(df)
+```
+### Variables
+What is the outcome of interest? Change in Pass Rate 
+
+What is the running variable, X? Vote percentage on whether to be autonomous or not
+
+What is the treatment variable D and how is it determined by X? A discontinuous function of X from a smooth and flexible function that controls the counterfactual. RD captures a causal effect by distinguish the treatment D from variable X.
+
+
+```{r}
+df <- 
+  df %>%
+  mutate(win = ifelse(vote > 50, 1, 0),
+         lose = ifelse(vote < 50, 1, 0),
+         margin = vote-50,
+         improvement=passrate2-passrate0) %>%
+  mutate(win_int = win*margin^2,
+         lose_int = lose*margin^2)
+glimpse(df)
+
+```
+
+
+## Type of RDD
+Types of RDD: 
+1. Sharp:  treatment is a deterministic, discontinuous function of a covariate X, a selection-on-observables story; for example, when treatment variable is binary. This design is based on selection on observables assumptions: Once we know X, we know D. At a certain vlaue of X, the probability of treatment D jumps discontinuously. D is correlated with X. We estimate causal effect by distinguishing D from f.
+- key identifying assumption: conditional mean of Y on x is continuous on X. But this assumption is not testable.
+- two ways of approximation: 1) nonparametric kernel method 2) kth order polynomial
+2. Fuzzy: when treatment variable is numeric or has many categories; exploits discontinuities in the probability of treatment. An instrument IV type of setup
+
+Is this a sharp design or fuzzy?
+
+https://faculty.smu.edu/kyler/courses/7312/presentations/baumer/Baumer_RD.pdf
+
+
+# Sharp RDD
+
+### Restrict boundaries
+Restrict sample size
+Repercussion of smaller sample size - what is the tradeoff?
+
+Comment on the internal and external validities of RDD
+
+## Visualize Data
+```{r}
+library(reshape2)
+df_melt <-
+  melt(df, id='vote')
+glimpse(df_melt)
+
+library(knitr)
+
+df_melt %>%
+  group_by(variable) %>%
+  summarise(mean=mean(value,na.rm=T)) %>%
+  kable()
+
+library(rdd)
+rdmod <- RDestimate(improvement ~ vote + win, data=df, cutpoint=50)
+```
+
+## Fitting Model
+
+Run local linear regression on various bandwidths
+```{r}
+summary(rdmod)
+plot(rdmod, main='Regression Discontinuity',xlab='Vote',ylab='Change in PassRate')
+```
+
+Visualize them for different bandwidths
+```{r}
+
+
+
+```
+
+## Regression Summary
+
+Regression Result - coefficient interpretation
+```{r}
+
+```
+
+
+## Visualization
+1. Show scatterplot with vertical line 
+2. Density plots before and after trimming 15% and 85%
+3. Different bandwidths and regression coefficient
+
+
+## Assumptions
+Evaluation assumptions. What are the assumptions? Are they more credifying assumptions than multiple linear regression?
+MLR.4 may not hold because of omitted variable bias. Then, RD is more credible.
+
+# Fuzzy RDD
+## Instrumental Variable
+How does IV work in RDD?
+Instrumental Variable - what are the implications on internal and external validities of RDD?
+
+_____________________________________________
+# Difference in Differences (DID)
+
+## Data
+Our data examines the effect of workers' compensation on time out of work. It compares individuals injured before andafter increases in the maximum weekly benefit amount. The increases examind in KY and MI raised the benefit amount for high earning individuals by approximately 50% while low earning individuals who were unaffected by the benefit maximu, did not experience a change in their incentives.
+```{r}
+df <- read_dta('C:/Users/jihun/Downloads/applied_microeconometrics/INJURY.DTA')
+glimpse(df)
+
+```
+
+## Fit a model
+Get the Before-After estimator for the treatment group.
+
+Do the same for the control group.
+
+Effect of increased workers' compensation on time out of work based on the BA estimator.
+
+Estimator of difference in outcomes between the treatment and control group in the period after benefits were raised for high earning individuals.
+
+## Identifying Assumption
+
+## Visualization 
+
+
+
+
+_________________________________________________________________
+# Panel Data
