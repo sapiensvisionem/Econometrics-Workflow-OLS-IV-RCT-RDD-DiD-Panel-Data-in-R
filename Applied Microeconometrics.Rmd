@@ -1,10 +1,9 @@
 ---
-title: "Applied Microeconometrics""
+title: "Applied Microeconometrics"
 author: "Ji Hun Lee"
-date: "April 13, 2020"
-output: rmarkdown::github_document
+date: "May 4, 2020"
+output: html_document
 ---
-
 # Introduction
 
 The goal of this study is to establish causal effect of *education on wages*. Note that this is fundamentally a different question from "Can we use  *education to forecast wage*" (predictive) or "How does *education vary with wage*" (descriptive).
@@ -45,8 +44,10 @@ As discussed earlier, we need to keep in mind of survey design restriction becau
 We also need to be mindful of whether our variable of interest is something that can be chosen (e.g. gender is something not chosen). In the case of gender, the interpretation of coefficient is, difference between average of male response and female response.
 
 ```{r}
-ggplot(df2, aes(x=gender, y=gpa, fill=gender)) +
-  geom_box() +
+library(ggplot2)
+ggplot(df2, aes(x=factor(female), y=colgpa)) +
+  geom_violin(aes(fill=factor(female))) +
+  geom_boxplot(width=0.4) +
   theme_minimal() +
   labs(title='Boxplot',
        x = 'gender',
@@ -119,9 +120,6 @@ glimpse(df)
 ```{r}
 print(summ(lmod1))
 print(summ(lm(lwage ~ COL + HS + KWW, data=df)))
-kable(tidy(wage.random), digits=4, caption=
-      "The random effects results for the wage equation")
-
 ```
 
 Interpretation of coefficient needs to be in the presence of control. We need to state, 'holding control's value constant/fixed, every unit of Y is increased/decreased by every unit change in X on average'. If  Y is logged, then change in X by 1 Y changes by 100\*exp(beta\*X) percentage; if coefficiet is 0.029 then Y changes by 2.9% 
@@ -235,11 +233,9 @@ Another way is to check the diagnostic plots, in particular residual vs fitted v
 ```{r}
 plot(lmod4)
 df %>%
-  mutate(residuals = residuals(lmod))
+  mutate(residuals = residuals(lmod1))
   groupby(educ, KWW) %>%
   summarise(conditional.mean = mean(residuals))
-
-
 ```
 
 *As for the housing data, the coefficients are likely to be biased, since there are some important factors that affect housing prices that are missing here. One such variable could be proximity to the city center.* We should also consier if we could collect additional data on environmental factors, which control variables would I include to make the zero conditional mean assumption credible. *For example, the proximity to the city center may be an important factor. We would also like to collect data on neighborhood characteristics such as crime rate of the neighborhood.*
@@ -269,6 +265,7 @@ summ(lmod5)
 
 # check the residuals density per gender
 df %>%
+  drop_na() %>%
   mutate(residuals = residuals(lmod5)) %>%
   ggplot(aes(residuals)) + 
       geom_density(aes(fill=factor(female))) +
@@ -504,125 +501,212 @@ When treatments are heteogeneous to subjects, our estimate is LATE and it is on 
 Assuming internal validity, can we extrapolate the results to other units (e.g. location, period)? Can we also assume external validity? There is a tradeoff between the two. When sample is large, external validity increases.
 
 ____________________________________________________________________________________________________________________
-# Regression Discotinuity
-## What is Regression Discontinuity?
-Run a regression in a situation where you have a discontinuity. How very similar people behave when they get dissimilar treatemnts. It exploits precise knowledge of the rules determining treatment. Works on quasi-experiment. Main identifying assumption: in a sufficiently near neighborhood around the discontinuity treatment is as good as randomly assigned. 
+# Regression Discotinuity Design (RDD)
+Run a regression in a situation where you have a discontinuity at a threshold of variable and results in a discrete treatment. People at a threshold are assumed to be very similar so it is similar to random experiment (quasi-experiment), and they get very dissimilar treatment. The key feature in this test is to exploit the precise knowledge of the rules determining treatment so that we know where the cutoff is. Again, the main identifying assumption is that, in a sufficiently near neighborhood around the discontinuity, treatment is as good as randomly assigned.
 
-It is essentially a bivariate analysis, and it only works on numeric vs numeric data. We also need a cutoff on X. Overall, this is very specific kind of problem.
-
-### applications:
+### Applications:
 What kind of problems does it deal with? 
-1. effect of scholarship on students
-2. effect of class size on student performance
-3. effect of unions
-4. effect of air pollution
+1. effect of scholarship on students: exams and financial aid thresholds (Van Der Klaauw, 2002)
+2. effect of class size on student performance: school class size (Angrist & Lavy, 1999)
+3. effect of unions (DiNardo & Lee, 2004)
+4. effect of air pollution (Chay & Greenstone, 2005)
 
 ## Problem Setup
-
-### Example Data
-
+This is from Damon Clark's paper (2004). Traditionally, schools in the UK have been funded and managed by Local Education Authorities. In London, this would be a borough with rather little in the way of autonomy given to individual schools. But the 1988 Education Act allowed schools to opt out of LEA control and become funded by central not local goernment with much more autonomy - this was called Grant-Maintained. Schools could become GM if a simmple majority of parents chose that option in a ballot. So if 51% of parents voted for GM status that school would become GM-school while if 49% voted for it, it would remain under LEA control. This is the basis of the regression continuity design. The paper contributes to the debate about how public institutions like schools or hospitals should be run: should they be given a budget and left to spend it how they want or should they be more tightly controlled? In the case of GM schools, becoming GM resulted not just in more autonomy but also more resources, which were justified as the school now had to deal with some issues that had previously been handled by the LEA and by some people perceived to be bribes as the government wanted to encourage the growth of GM schools. Thus the change to GM resulted in both more autonomy and possibly more resources.
 ```{r}
 df <- read_dta('C:/Users/jihun/Downloads/applied_microeconometrics/damonclark.dta')
-glimpse(df)
 summary(df)
 ```
 ### Variables
-What is the outcome of interest? Change in Pass Rate 
+1) What is the outcome of interest? Change in Pass Rate 
+2) What is the running variable, X? Vote percentage on whether to be autonomous or not
+3) What is the treatment variable D and how is it determined by X? A discontinuous function of X from a smooth and flexible function that controls the counterfactual. RD captures a causal effect by distinguish the treatment D from variable X.
 
-What is the running variable, X? Vote percentage on whether to be autonomous or not
-
-What is the treatment variable D and how is it determined by X? A discontinuous function of X from a smooth and flexible function that controls the counterfactual. RD captures a causal effect by distinguish the treatment D from variable X.
-
-
+passrate0 is the pass rate of pupils in the school in the year immediately prior to the vote
+passrate2 is the pass rate of pupils in the school two years after the vote
+vote is the percentage vote in favor of the GM status
 ```{r}
+# generate a dummy variable for a winning vote and one for a losing vote in the GM election where 50% is the critical threshold
+# generate a margin variable as the difference from threshold of victory in the vote
+# generate interactions of win with margin
 df <- 
   df %>%
   mutate(win = ifelse(vote > 50, 1, 0),
          lose = ifelse(vote < 50, 1, 0),
          margin = vote-50,
-         improvement=passrate2-passrate0) %>%
+         change_pass=passrate2-passrate0) %>%
   mutate(win_int = win*margin^2,
          lose_int = lose*margin^2)
 glimpse(df)
+```
+The underlying assumption is that the schools who barely passed the ballot and the schools who did not pass are very similar that we can use one group of the schools as clones of the other group. This is to say the potential outcomes are continuous at vote=50. Since winning the ballot becomes GM so we can say this is a sharp RD design.
 
+## Type of RDD
+1. Sharp: treatment is a deterministic, discontinuous function of a covariate X. This design is based on selection on observables assumptions: Once we know X, we know D, which is correlated with X. We estimate causal effect by distinguishing D from f, density estimation function.
+- key identifying assumption: conditional mean of Y on x is continuous on X, which implies all other unobserved determinants of Y are continuously related to the running variable of X. This allows us to use average outcomes of units below the cutoff as a valid counterfactual for units right above the cutoff.
+- two ways of approximation: 1) nonparametric kernel method 2) kth order polynomial
+- accoun for interaction by interacting treatment D with running variable X
+- it is very important that the polynomials provide an adequate representation of conditional mean of Y on X; otherwise what looks like a jump may simply be a nonlinearity that the polynomials have not accounted for
+
+2. Fuzzy: crossing the threshold is not the only cause for receipt of the treatment, treatment is not a deterministic function of running variable. Instead, it is useful think of threshold where the probability of receiiving the treatment jumps or due to unobservable variables. when treatment variable is numeric or has many categories; exploits discontinuities in the probability of treatment. An instrument IV type of setup. 
+
+
+With fuzzy RDD, the avreage change in y around the threshold understate causeal effect Comparision assumes all observations were treated, but this isn’t true; if all observations had been treated, observed change in y would be even larger; we will need to rescale based on change in probability
+
+# Data Preprocessing
+Clark restricts his sample to those schools with votes in favor of GM status between 15% and 85% because they are different in terms of covariates. They have particular motives for seeking GM status and exceptionally high baseline pass rates, whilst many schools in the tails of the voting distribution were threatened with closure.
+```{r}
+df <-
+  df %>%
+  filter(vote<=85 & vote >= 15)
 ```
 
 
-## Type of RDD
-Types of RDD: 
-1. Sharp:  treatment is a deterministic, discontinuous function of a covariate X, a selection-on-observables story; for example, when treatment variable is binary. This design is based on selection on observables assumptions: Once we know X, we know D. At a certain vlaue of X, the probability of treatment D jumps discontinuously. D is correlated with X. We estimate causal effect by distinguishing D from f.
-- key identifying assumption: conditional mean of Y on x is continuous on X. But this assumption is not testable.
-- two ways of approximation: 1) nonparametric kernel method 2) kth order polynomial
-2. Fuzzy: when treatment variable is numeric or has many categories; exploits discontinuities in the probability of treatment. An instrument IV type of setup
-
-Is this a sharp design or fuzzy?
-
-https://faculty.smu.edu/kyler/courses/7312/presentations/baumer/Baumer_RD.pdf
-
-
-# Sharp RDD
-
-### Restrict boundaries
-Restrict sample size
-Repercussion of smaller sample size - what is the tradeoff?
-
-Comment on the internal and external validities of RDD
-
 ## Visualize Data
+We can use visualiztion to check assumptions of the data.
+
+The first visualization is outcome by running variable (aka forcing variable) and this is the stanard graph showing the discontinuity in the outcome variable. We construct bins and average the outcome within bins on both sides of the cutoff. We look at the different bin sizes when constructing these graphs, and plot the forcing variable on the horizontal axis and the average of Y for each bin on the vertical axis. Then, we inspect whether there is a discontinuity at the threshold and whether there are other obvious unexpecte discontinuities.
 ```{r}
-library(reshape2)
-df_melt <-
-  melt(df, id='vote')
-glimpse(df_melt)
+library(tidyverse)
+df %>%
+  mutate(bins = cut(df$vote, breaks=50)) %>%
+  ggplot(aes(x=bins, y=change_pass)) +
+  stat_summary(fun='mean', geom='point') +
+  geom_vline(aes(xintercept=which(levels(bins)=='(48.8,50.2]'))) +
+  labs(title='Change in % of Pass Rate at the 50% Vote Threshold',
+       subtitle='50 Bins',
+       x='Vote',
+       y='Change % in Pass Rate After 2 Years') +
+  theme(axis.text.x = element_blank(),
+        axis.ticks = element_blank())
 
-library(knitr)
+```
 
-df_melt %>%
-  group_by(variable) %>%
-  summarise(mean=mean(value,na.rm=T)) %>%
-  kable()
+```{r}
+df %>%
+  mutate(bins = cut(df$vote, breaks=200)) %>%
+  ggplot(aes(x=bins, y=change_pass)) +
+  stat_summary(fun='mean', geom='point') +
+  geom_vline(aes(xintercept=which(levels(bins)=='(49.8,50.2]'))) +
+  labs(title='Change in % of Pass Rate at the 50% Vote Threshold',
+       subtitle='200 Bins',
+       x='Vote',
+       y='Change % in Pass Rate After 2 Years') +
+  theme(axis.text.x = element_blank(),
+        axis.ticks = element_blank())
+```
 
-library(rdd)
-rdmod <- RDestimate(improvement ~ vote + win, data=df, cutpoint=50)
+The second visualization is countplot. If we have abnormally large portion of people around the cutoff, it is quite possible that you do not have random assignment. In this case, such anomaly does not exist.
+```{r}
+df %>%
+  ggplot(aes(x=vote,y=change_pass)) +
+  geom_count(aes(color=factor(win))) +
+  geom_vline(xintercept=50) +
+  labs(title='Change in % of Pass Rate at the 50% Vote Threshold',
+       subtitle='Count Plot',
+       x='Vote',
+       y='Change % in Pass Rate After 2 Years',
+       color='Win vs Lose')
+```
+
+
+We want the treatment and control groups to have similar distributions. First, we need to look at the density of the outcome variable for both treatment and control groups. 
+```{r}
+df %>%
+  ggplot(aes(x=passrate0)) +
+  geom_density(aes(color=factor(win))) +
+  labs(x='Vote',
+       title='Density Plots of PassRate0',
+       subtitle='Treatment and Control have similar distributions',
+       color='Win vs Lose')
+```
+
+We also need to look at the density of the running (forcing) variable. We should plot the number of observations in each bin. It allows us to investigate whether there is a discontinuity in the distribution of the forcing variable at the threshold. This would suggest that people can manipulate the forcing variable around the threshold, and suggests an indrect test of the identifying assumption that each individual has imprecise control over the assignment variable.
+```{r}
+df %>%
+  ggplot(aes(x=margin)) +
+  geom_density(aes(color=factor(win))) +
+  labs(x='Vote Margin',
+       title='Density Plots of Vote Margins',
+       subtitle='Treatment and Control have similar distributions',
+       color='Win vs Lose')
+
 ```
 
 ## Fitting Model
 
-Run local linear regression on various bandwidths
+### I-K Optimal Bandwith Local Linear Regression
+Run local linear regression on various bandwidths optimized using the Imbens-Kalyanaraman method, and then estimated with half that bandwidth, and twice that bandwidth.
 ```{r}
-summary(rdmod)
+library(rdd)
+rdmod <- RDestimate(improvement ~ vote, data=df, cutpoint=50)
+```
+
+and plot the regression:
+```{r}
 plot(rdmod, main='Regression Discontinuity',xlab='Vote',ylab='Change in PassRate')
 ```
+If we have a smaller bandwidth, standard error gets larger. This is the well known bias-variane trade-off. If we have a smaller bandwidth, it is more likely that the populations below and above the threshold are similar so that the coefficient on win has smaller bias, but having smaller bandwidth means we have fewer observations, which results in larger standard error.
 
-Visualize them for different bandwidths
+The increase in standard errors shows in the fitted curves with smaller bandwidths showing larger fluctuations around the boundaries, indicating larger variance. We cannot assess the bias from the plot. With small sample size, we would expect the bandwidth to be large to have a reasonable fit of the boundaries. Make sure to watch out for non-linearity that can arise from outliers. We would expect functional form to be similar at the boundary, so difference such as linearity vs non-linearity should be examined closely.
+
+### Polynomial Regression
 ```{r}
-
-
-
+# instead of rdd package, use lm() function
+rdmod1 <- lm(change_pass ~ win, data=df)
+rdmod2 <- lm(change_pass ~ win + margin, data=df)
+rdmod3 <- lm(change_pass ~ win + margin*win + margin*lose, data=df)
+rdmod4 <- lm(change_pass~win + margin + win*margin + lose*margin + win*margin^2 + lose*margin^2, data=df)
+stargazer(rdmod1, rdmod2, rdmod3, rdmod4, type='text', title='Table RDD-1: RDD Models with Different Sets of Variables', style='aer', digits=2, align=T)
 ```
 
-## Regression Summary
-
-Regression Result - coefficient interpretation
+### Different Subsets of Data
+If we have data on outcome variable prior to the treatment, then we can use this data to check whether the populations below and above the threshold are similar. We want the two populations to be clones of each other and so we want them to be similar not only interms of the unobservables but also the observables.
 ```{r}
+rdmod5 <- lm(change_pass ~ win + margin:win + margin:lose, data=df, subset=(vote<=85 & vote >= 15))
+rdmod6 <- lm(change_pass ~ win + margin:win + margin:lose, data=df, subset=(vote<=70 & vote >= 30))
+rdmod7 <- lm(change_pass ~ win + margin:win + margin:lose, data=df, subset=(vote<=55 & vote >= 45))
+stargazer(rdmod5, rdmod6, rdmod7, title='Impact of GM Status on Pass Rates of School: Two Years after Base Year',style='aer', digits=2, align=T, type='text')
+```
+If the RDD is to be valid, we dont want the coefficient to be significiant at the 5% level. The regression result shows that schools who won the ballot have on average lower pre-ballot student passing rate than those who did not win the ballot.
 
+### Different Bandwidths on SSmoothing
+Results need to be robust to different bandwidths
+need to report results for both estimation types (polynomial in X and local inear regression) 
+need to show that including higher order polynomials does not substantially affect our findings, and our results are not affected if you vary the window around the cutoff (stanard errors may go up but hopefully the point estimate doesnt change)
+
+```{r}
+par(mfrow=c(2,2))
+g <-
+  ggplot(df, aes(x=margin, y=change_pass)) +
+  geom_point(aes(color=factor(win))) +
+  geom_vline(xintercept=0) +
+  labs(x='Vote Margin',
+       y='Change % in Pass Rate',
+       title='Outcome by Forcing Variable')
+
+g + geom_smooth(method='loess', span=0.1, aes(color=factor(win))) +
+  labs(subtitle='Loess with Span 0.1')
+g + geom_smooth(method='loess', span=0.3, aes(color=factor(win))) +
+  labs(subtitle='Loess with Span 0.3')
+g + geom_smooth(method='loess', span=0.5, aes(color=factor(win))) +
+  labs(subtitle='Loess with Span 0.5')
+g + geom_smooth(method = 'lm', formula = y ~ splines::bs(x, 3), aes(color=factor(win))) +
+  labs(subtitle='Cubic Polynomial')
 ```
 
-
-## Visualization
-1. Show scatterplot with vertical line 
-2. Density plots before and after trimming 15% and 85%
-3. Different bandwidths and regression coefficient
-
-
-## Assumptions
-Evaluation assumptions. What are the assumptions? Are they more credifying assumptions than multiple linear regression?
-MLR.4 may not hold because of omitted variable bias. Then, RD is more credible.
 
 # Fuzzy RDD
+Units with values above a certain threshold value of the underlying variable are more likely to be treated than those below
+
 ## Instrumental Variable
-How does IV work in RDD?
-Instrumental Variable - what are the implications on internal and external validities of RDD?
+The discontinuity becomes an IV for treatment status. Create interaction terms with instrument for increased complexity. Use 2SLS to estimate the coefficient.
+
+## Problem
+Boundary problem from kernel method is that it implies a systematic bias with the method if f(x) is upwards or downwards sloping. Local linear regression solves this problem. 
+
+## Optimizing Bandwidth
+There are three main methods to choose bandwidth: 1) cross validation 2) optimal bandwith by Imbens and Kalyanaraman 3) robust data-driven inference
 
 _____________________________________________
 # Difference in Differences (DID)
