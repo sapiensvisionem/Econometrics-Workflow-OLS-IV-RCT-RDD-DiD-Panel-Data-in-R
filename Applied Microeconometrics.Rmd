@@ -4,8 +4,27 @@ author: "Ji Hun Lee"
 date: "May 4, 2020"
 output: html_document
 ---
-# Introduction
 
+Import Libraries prior to analysis:
+```{r message=FALSE}
+library(did)
+library(rdd)
+library(AER)
+library(plm)
+library(caret)
+library(haven)
+library(jtools)
+library(GGally)
+library(lmtest)
+library(graphics)
+library(het.test)
+library(stargazer)
+library(tidyverse)
+library(tidymodels)
+library(robustbase)
+```
+
+# Introduction
 The goal of this study is to establish causal effect of *education on wages*. Note that this is fundamentally a different question from "Can we use  *education to forecast wage*" (predictive) or "How does *education vary with wage*" (descriptive).
 
 Our data is collected via only observing the outcome - *wage* - in the actual choice scenario of *enrolling in higher education*. It would be great if we can construct counterfactual outcomes to answer the question: what would happen if *an individual had a different educational attainment*. Not being able to observe disparate outcomes *(educated vs uneducated)* at the same time for the same individual experimental unit is hard.
@@ -24,9 +43,6 @@ The first dataset is *the NLS sample of young men containing information on hour
 The other datasets have a view below.
 
 ```{r}
-library(haven)
-library(tidyverse)
-
 df <- read_dta('C:/Users/jihun/Downloads/applied_microeconometrics/CARD.DTA')
 glimpse(df)
 df2 <- read_dta('C:/Users/jihun/Downloads/applied_microeconometrics/gpa2.dta')
@@ -44,7 +60,6 @@ As discussed earlier, we need to keep in mind of survey design restriction becau
 We also need to be mindful of whether our variable of interest is something that can be chosen (e.g. gender is something not chosen). In the case of gender, the interpretation of coefficient is, difference between average of male response and female response.
 
 ```{r}
-library(ggplot2)
 ggplot(df2, aes(x=factor(female), y=colgpa)) +
   geom_violin(aes(fill=factor(female))) +
   geom_boxplot(width=0.4) +
@@ -83,18 +98,14 @@ Regression Technique makes inferences about unknown population slope coefficient
 
 In order to reduce omitted variable bias, we need to include control variables into our regression model. We will control for *intelligence* of our subjects to control for systematic variation of wage with respect to subject's *intelligence*.
 ```{r}
-library(jtools)
 lmod1 <- lm(lwage~educ+KWW, data=df)
 lmod1$call$formula
-
 ```
 
 ### Overcontrolling
-
 We need to ensure whether our model has any Overcontrolling issues. In our case, there is *no* overcontrolling. For example, we don't need to include productivity as a variable when we already have education, IQ. 
 
 ## Data Preprocessing
-
 We need to choose data preprocessing before running our econometric methods. *In our example, we need to decide whether a categorical or numeric variable is better suitable. Depending on how we encode our educ variable as numeric or categorical, interpretation becomes very different. For instance, is education better in terms of years in education or degree earned? College degree will be educ >= 16, HS will be >= 12 and <16. The question will ask whether the wage only responds to the degree i.e. whether wage jumps at the moment an individual obtains a degree and do not change everywhere else, or the wage increases linearly with years of education.*
 
  Log Transformation: can be used to normalize the response variable, but changes *wage* to percentages, not levels. The choice of log-transformation depends on whether we will define the response in terms of percentage or original unit.
@@ -104,9 +115,7 @@ We need to choose data preprocessing before running our econometric methods. *In
    - WARNING: if you log,log(10,000) - log(1) = 9.2 whereas log(1,500,000) - log(80,000) = 0.63. This implies variation in the data will be due to whether someone is - for example in the job market, rather than effect on wages.
    
 *Our model will log-transform the wage variable.*
-
 ```{r}
-library(tidymodels)
 df <-
   recipe(lwage ~ educ + KWW + wage + age + exper, data=df) %>%
     step_mutate(COL = ifelse(educ >= 16, 1, 0), # college degree is people who have more than 16 years of educatioanl years
@@ -131,17 +140,14 @@ We can interpret the number *0.02* as a *'person would have received 2.1% higher
 Is it statistically different from zero, vary signiifor in other words, can we reject the null hypothesis that beta = 0? does it vary significantly with response? if it is not, we dont have to allow for the variable. *Yes, it is statistically significant.*
 
 *F-test rejects the null hypothesis that the coefficients on the two types of education return are equal.*
-
 ```{r}
 print(summ(lm(price ~ sqrft + bdrms + lotsize, data=df3)))
 ```
 The table shows the regression result. The coefficient 0.12 on sqrft means that the price would have been 0.12x1000 dollars higher if the unit were one-square-feet larger while the number of bedrooms and the size of lot stayed the sasme. We can interpret other coefficients simiarly.
 
 ### Functional Form
-
 We need to check the functional relationship between our numeric variable of interest and response. *In our case, the linear relationship seems to hold.*
 ```{r}
-
 df1 <- 
   df %>%
   mutate(KWW_bins =  predict(
@@ -158,7 +164,6 @@ df1 %>%
          y='Log Wage') +
     theme_minimal() +
     facet_wrap(~KWW_bins, ncol=2)
-
 ```
 
 ### Interaction Effects
@@ -180,7 +185,6 @@ summ(lm(price ~ sqrft*colonial + bdrms*colonial + lotsize*colonial - colonial, d
 We should always check for multicolinearity in the data because in the presence of collinearity, there is little unique variation in each X and it is hard to disentangle effect of one X from other correlated X. Linear regression measure partial effect of variable holding all other variables constant, but when there is a high collinearity, It makes inference more difficult because it causes both bias and increases standard error in our coefficients. *There is no pronounced collinearity in our data.*
 
 ```{r}
-library(GGally)
 print(ggcorr(df, method = c("everything", "pearson")))
 print(ggpairs(df, progress=F))
 ```
@@ -256,9 +260,6 @@ Check homoscedasticity assumption by White tests, and Breuch-Pagan test. Look at
 
 Ignoring heteroskedasticity will imply we put too much faith iin beta from a given sample i.e. underestimate the variance. Because it depends a lot onstructure of data, it is not clear how heteroskedasticity affects variance.
 ```{r}
-library(lmtest)
-library(het.test)
-
 # regress college GPA on a gender indicator
 lmod5 <- lm(colgpa ~ female + sat, data=df)
 summ(lmod5)
@@ -303,7 +304,6 @@ Run heteroskedasticity-robust linear regression or log transform the rresponse v
 coeftest(lmod5, vcov = vcovHC(lmod5))
 
 # robust linear regression
-library(robustbase)
 lmod6 <- lmrob(colgpa ~ female + sat, data=df)
 summary(lmod6)
 
@@ -325,7 +325,6 @@ Adjusted R-squared: may increase or decrease with addition of another regressor.
 We can also use these metricsc to determine whether some functional form of variable or interaction term is better or not based on whether adjusted R squared changes
 
 ```{r}
-library(caret)
 postResample(pred = predict(lmod, df), obs = df$lwage)
 ```
 
@@ -355,14 +354,14 @@ df3 %>%
 
 ```
 The fits look similarand the performance of the fit does not seem to differ across different values of colonial. In the subset of colonial=0, the model shows a little bit of overfitting. Given that the fits are similar, prefer a simpler model.
-____________________________________________________________________________________________________________________________________________________
+_____________________________________________________________________________________________________________________________________
 # Randomized Control Trial
 
 
 
 
 
-_______________________________
+_________________________________________________________________________
 # Instrumental Variable Regression
 
 IV is an alternative method to OLS or randomized experiment. Randomized experiment is often not feasible, and OLS doesnt always have all unobserved confounding variables. For example, let us consider a model relating education and wage. OLS assumes zero conditional mean and that the only effect of X on Y is through beta x X. However, we need to account for ability that can induce a correlation between X and error. In this case, X is endogenous, and people with high ability are likely to have high education. This renders OLS estimator inconsistent and cannot be abscribed causal interpretation.
@@ -399,8 +398,6 @@ The most difficult practical part of IV model is finding the right instruments. 
 
 We can use the AER package to fit IV model. It is done in two stages.
 ```{r}
-library(AER)
-library(stargazer)
 iv <- ivreg(LWKLYWGE ~ AGEQ+ EDUC + MARRIED + RACE + ENOCENT + ESOCENT + MIDATL + MT + NEWENG + SOATL + WNOCENT + WSOCENT| QOB + AGEQ + MARRIED + RACE + ENOCENT + ESOCENT + MIDATL + MT + NEWENG + SOATL + WNOCENT + WSOCENT, 
             data = df)
 ```
@@ -424,15 +421,10 @@ coeftest(iv, vcov = vcovHC, type = "HC1")
 # gather robust standard errors in a list
 rob_se <- list(sqrt(diag(vcovHC(iv, type = "HC1"))))
 # generate table
-# stargazer(iv,
-#  header = FALSE, 
-#  type = "html",
-#  omit.table.layout = "n",
-#  digits = 3, 
-#  column.labels = c("IV: Compulsory Education on Wage"),
-#  dep.var.labels.include = FALSE,
-#  dep.var.caption = "Dependent Variable: Log Weekly Wage",
-#  se = rob_se)
+stargazer(iv,
+ type = "text",
+ digits = 3, 
+ se = rob_se)
 ```
 
 ## Assumptions
@@ -551,7 +543,7 @@ The underlying assumption is that the schools who barely passed the ballot and t
 2. Fuzzy: crossing the threshold is not the only cause for receipt of the treatment, treatment is not a deterministic function of running variable. Instead, it is useful think of threshold where the probability of receiiving the treatment jumps or due to unobservable variables. when treatment variable is numeric or has many categories; exploits discontinuities in the probability of treatment. An instrument IV type of setup. 
 
 
-With fuzzy RDD, the avreage change in y around the threshold understate causeal effect Comparision assumes all observations were treated, but this isn’t true; if all observations had been treated, observed change in y would be even larger; we will need to rescale based on change in probability
+With fuzzy RDD, the avreage change in y around the threshold understate causeal effect Comparision assumes all observations were treated, but this isn't true; if all observations had been treated, observed change in y would be even larger; we will need to rescale based on change in probability
 
 # Data Preprocessing
 Clark restricts his sample to those schools with votes in favor of GM status between 15% and 85% because they are different in terms of covariates. They have particular motives for seeking GM status and exceptionally high baseline pass rates, whilst many schools in the tails of the voting distribution were threatened with closure.
@@ -567,7 +559,6 @@ We can use visualiztion to check assumptions of the data.
 
 The first visualization is outcome by running variable (aka forcing variable) and this is the stanard graph showing the discontinuity in the outcome variable. We construct bins and average the outcome within bins on both sides of the cutoff. We look at the different bin sizes when constructing these graphs, and plot the forcing variable on the horizontal axis and the average of Y for each bin on the vertical axis. Then, we inspect whether there is a discontinuity at the threshold and whether there are other obvious unexpecte discontinuities.
 ```{r}
-library(tidyverse)
 df %>%
   mutate(bins = cut(df$vote, breaks=50)) %>%
   ggplot(aes(x=bins, y=change_pass)) +
@@ -638,7 +629,6 @@ df %>%
 ### I-K Optimal Bandwith Local Linear Regression
 Run local linear regression on various bandwidths optimized using the Imbens-Kalyanaraman method, and then estimated with half that bandwidth, and twice that bandwidth.
 ```{r}
-library(rdd)
 rdmod <- RDestimate(improvement ~ vote, data=df, cutpoint=50)
 ```
 
@@ -711,29 +701,410 @@ There are three main methods to choose bandwidth: 1) cross validation 2) optimal
 _____________________________________________
 # Difference in Differences (DID)
 
+If we do not have random assignment into treatment (i.e. RCT) to balance unobservables, a valid IV, credible RD design, or cannot use MLR to control for all relevant observables, then we can use DiD. Differnece in Differences method relies on selection on unobservables in the sense that sometimes it is more reasonable to assume that changes in variables (rather than levels) move in parallel.
+
+We pool cross sections of individuals/geographical units/firms on whom some policy is enacted (job training, electoral rule, new regulation). The group exposed to the policy is called treatment group and the group not exposed is control group. Using DiD implies that we compare the difference in outcomes in the treatment and control groups before and after treatment. The data requiremenet is only that we have cross-section ata for the treatment and control groups before and after the policy.
+
+## Applications
+1. Frieberg (1998) Divorce Law on Divorce Rate
+2. Card (1992) Minimum Wage 
+3. Autor (2003) Employment Protection
+4. Abadie and Gardeazabal (2003) Terrorism and Growth
+
+## Identifying Assumption
+The DiD estimate is an unbiased estimator of the causal effect if the average change in the outcome variable would have been the same for the two groups without the treatment (parallel trend assumption).
+
+DiD estimator is superior to Before-After estimator in one important way. BA estimator compares the outcome for the treated group before and after treatment, but this is a causal effect only if there are no other average differences in unobservables before and after policy change. It ignores time and age effects, and is a very strong assumption. DiD uses control group to difference out other factors and isolate the policy effect, and recovers treatment on the treated. 
+
 ## Data
-Our data examines the effect of workers' compensation on time out of work. It compares individuals injured before andafter increases in the maximum weekly benefit amount. The increases examind in KY and MI raised the benefit amount for high earning individuals by approximately 50% while low earning individuals who were unaffected by the benefit maximu, did not experience a change in their incentives.
+Our data examines the effect of workers' compensation on time out of work. It compares individuals injured before and after increases in the maximum weekly benefit amount. The increases examind in KY and MI raised the benefit amount for high earning individuals by approximately 50% while low earning individuals who were unaffected by the benefit maximum, did not experience a change in their incentives.
 ```{r}
 df <- read_dta('C:/Users/jihun/Downloads/applied_microeconometrics/INJURY.DTA')
 glimpse(df)
+View(df)
+```
+
+## Checking Assumptions
+DiD's important assumption is that there is no other interaction between time and treatment group except for the treatment we stuy. Thus changes in unobservables over time affect both groups in the same way. Fixed group affects capture unmeasured differences between treated and non-treated.
+
+1. Targeting differences: we want to make sure in the data is that treatment wasn't done due to pre-existing differences in outcome.
+
+2. Functional form dependence: When average levels of the outcome are very different for control and treatments before the policy change, the magnitude or even sign of the DiD effect is very sensitive to funcitonal form
+
+3. Long term response versus reliability tradeoff: DiD estiates are more reliable when we compare outcomes just before and just after the policy change because the parallel trend is more likely to hold over a short time window
+
+4. Inference: if observations in the control and treatment group tend to move together and are correlated, then there may be a random effect at the time or group level, so we actually have less information.
+
+## Fit a model
+First, I fit Before-After estimator for the treatment group on the subpopulation of highe earners in Kentucky.
+```{r}
+# Get the Before-After estimator for the treatment group.
+BA_treatment_mod <- lm(ldurat~afchnge, data=df, subset=(highearn==1 & ky==1))
+# Get the Before-After estimator for the control group
+BA_control_mod <- lm(ldurat~afchnge, data=df, subset=(highearn==0 & ky==1))
+# Get the cross-section estimator on the period after treatment
+CS_before_mod <- lm(ldurat~highearn, data=df, subset=(afchnge==1 & ky==1))
+# Get the cross-section estimator on the period before treatment
+CS_after_mod <- lm(ldurat~highearn, data=df, subset=(afchnge==0 & ky==1))
+# Get the complete DiD model
+didmod <- lm(ldurat~highearn*afchnge, data=df, subset=(ky==1))
+# Summarize the results
+stargazer(BA_treatment_mod, BA_control_mod, CS_before_mod, CS_after_mod, didmod, type='text', title='Effect of Raising Benefits on Injury Duration')
+```
+The change in the policy over time induced around 19.8% increase in the duration on average for high earners in Kentucky. The identifying assumption requires the error term to be uncorrelted with afchnge in the treatment group in order for the causal interpretation. In particular it means that there should be no time trend. This may not be true if the economy may have gotten better over time so that it is easier to get a job than before after they recover.
+
+For the BA estimator on control group. we see the coefficient on afchnge is close to zero. This does not raise doubts about the assumption of no time trend. We can here compute DiD estimator by differencing the coefficients for BA-estimators for treatment and control group.
+
+The regression equation for the Cross-Section estimator after the policy change is run for the observations after the benefit is raised in Kentucky. As shown in the table, high-earners have around 44.7% larger duration than the low earners on average, after the policy change. In order to interpret this as the causal effect of raising benefits, we need to asssume that there is no difference between the high-earners and the low-earners in their injury duration before the policy change. However, this may not hold since high-earners may have more stable job than low earners. The high-earners are secured to return to their previous job while the low-earners may have to find a new job if they are out too long, which induces the low-earners to return quickly.
+
+For the CS estimator before te policy change, high earners have around 25.6% larger duration than the low-earners on average. This raises assumption on the CS estimator above. We can here compute DiD estimator by ifferencing the coefficients after and before groups.
+
+Finally, we have the complete model and the coefficient of 0.191. The main identifying assumption is that the amount of selection bias caused by unobservables stay the same over time except for the unobservables that affect both groups in the same way. In other words, we require that the potential outcomes of high earners and low earners have a common time trend. This means that, if the policy was not implemented, the high earners and the low earners would have shown the same rate of changes in the injury furation over time.
+
+Because of selection bias CS estimator is not credible. We have little evidence of time trend in the data but the complete model didmod remains valid when there was actually time trend, so it is the most credible.
+
+### Feature Selection on the Complete Model
+```{r}
+didmod1 <- lm(ldurat ~ afchnge + highearn + afhigh, data=df, subset=(ky==1))
+didmod2 <- lm(ldurat~highearn + afhigh, data=df, subset=(ky==1))
+didmod3 <- lm(ldurat~afchnge + afhigh, data=df, subset=(ky==1))
+stargazer(didmod1, didmod2, didmod3, type='text')
+```
+It is not surprising that the coefficient on afhigh is similar for both columns because there is little time-trend. Now the coefficient on the interaction term in the column 3 is much larger because there is a large difference in the baseline injury duration between the high-earners and the low-earners.
+
+### Add controls
+```{r}
+didmod_ky <- lm(ldurat~highearn*afchnge+male+married, data=df, subset=(ky==1))
+didmod_mi <- lm(ldurat~highearn*afchnge+male+married, data=df, subset=(mi==1))
+stargazer(didmod_ky, didmod_mi, type='text', title='Effect of Raising Benefits on Injury Duration in Kentucky and Michigan')
+```
+After adding the controls, the estimates on interaction term increases to 0.224 and is still statistically significant. The low R-squared suggests large degree of heterogeneity across individuals. If we use panel data and control for the fixed effects, the R-squared may increase significantly. If the fixed effects are highly correlated with the regressors considered here, then the estimates are biased and are useless. But if the fixed estimates are uncorrelated with the regressors, i.e. if they are in fact random effects, then the regression is still useful. 
+
+As shown in the second column, the estimate is not statistically signficant for the Michigan sample due to a larger standard error. However, the point estimate suggests the same sign of the effect and the magnitude is somewhat similar to that in Kentucky. The imprecise estimate is due to a smaller sample size in Michigan.
+
+## Visualization 
+Slope Chart
+```{r}
+
 
 ```
 
-## Fit a model
-Get the Before-After estimator for the treatment group.
+## Three or More Periods
+When T>2, DiD lends itself to a test for causality in the spirit of Granger (1969). The Granger idea is to see whether causes happen before consequences and not vice versa. Suppose the policy variable of interest changes at different times in different states. In this context, Granger causality testing means a check of whether, conditional on state and year effects, past treatments predict future outcomes while future treatment does not predict past outcomes.
 
-Do the same for the control group.
+In our dataset, we can collect one more period of data before the change, and then check whether the high-earners and the low-earners actually show a common time trend before the change.
 
-Effect of increased workers' compensation on time out of work based on the BA estimator.
-
-Estimator of difference in outcomes between the treatment and control group in the period after benefits were raised for high earning individuals.
-
-## Identifying Assumption
-
-## Visualization 
-
-
-
+### Synthetic Control Method
+In some cases, treatment and potential control groups do not follow parallel trends and DiD estimator would lead to biased estimates. The basic idea behind it is that a combination of units of ten provides a better comparison for the unit exposed to the intervention than any single unit alone. For instance, you can take a weighted average of other units as a synthetic control group.
 
 _________________________________________________________________
-# Panel Data
+# Panel Data Methods
+Panel data is data where we observe the same unit (individual/firm/country) over time periods. A common feature of panel data is that sample of individuals is typically large and the number of timme periods is relatively short. There are three types of panel data:
+1. Balanced: all identities are observed in all periods
+2. Unbalanced: entry, exit, and non-response exist
+3. Rotating: a share of the sample is renewed every year
+
+Panel data methods have many benefit:
+1. increase in sample size increases precision of estimates
+2. control individual fixed effects which are common to an individual across time but might vary across agents at any point in time, and this is known as unobserved heterogeneity. This is not possible for cross-section datat.
+3. avoid aggregation bias: model behavior at the micro level not suited for aggregation
+
+The key theme in the panel data methods is that if an omitted variable does not change over time, then any changes in Y over time cannot be caused by the omitted variable.
+
+Regression using panel data may mitigate omitted variable bias when there is no information on variables that correlate with both the regressors of interest and the independent variable and if these variables are constant in the time dimension or across entities.
+
+We will study two datasets and do the following models:
+
+1. Quasi-Panel Data: two periods concatenated row-wise and different periods marked by a binary column
+- pooled OLS
+2. Panel Data: Fatality from Drunk Driving 
+- First Difference Estimator
+- Fixed Effect
+- Random Effect 
+
+As opposed to DiD, we are considering data from two periods for the same individuals, as opposed to cross-sections from the same populations.
+
+## Dataset 1: Wage Determinants
+This is a panel data of workers with two years of wage and its determinants on two periods: 1978 and 1985. 
+```{r}
+df <- read_dta('C:/Users/jihun/Downloads/applied_microeconometrics/CPS78_85.dta')
+glimpse(df)
+```
+
+## Data Preprocessing
+We create two variables:
+1. y85educ12: years of education subtracted by 12
+2. llwage: inflation adjusted log-waged
+```{r}
+df <-
+  df %>%
+  mutate(y85educ12 = y85*I(educ-12), # this can induce different interpretation for y85 from wage return on person with no education to 12 years of education
+         llwage = ifelse(y85==1,I(lwage-log(1.65)),lwage)) # inflation adjusted wage log(wage/inflation) = log(wage) - log(inflation)
+```
+
+## Fit Models: Pooled OLS
+We fit the follwowing models to estimate the causal effect of union membership, education, and gender.
+```{r}
+pmod1 <- lm(lwage ~ y85 + educ + y85educ + exper + expersq + union + female + y85fem, data=df)
+pmod2 <- lm(lwage ~ y85 + educ + exper + expersq + union + female + y85fem + y85educ12, data=df)
+pmod3 <- lm(llwage ~ y85 + educ + y85educ + exper + expersq + union + female + y85fem, data=df)
+pmod4 <- lm(lwage ~ y85 + educ + y85educ + exper + expersq + union + female + y85fem + y85union, data=df)
+stargazer(pmod1, pmod2, pmod3, pmod4, type='text', title='Determinants of Wages in 1978 and 1985')
+```
+
+The first model:
+- the wage return to education in 1978 is around 7.47% (educ). 
+- The wage return to education over this time period has changed by around 1.85 percentage points (y85educ). 
+- The gender wage gap in 1978 is around -31.7% (i.e. women have 31.7% lower wage on average than men). 
+- The gender wage gap over this time period changed has b around 8.51 percentage points (y85fem). This is to say that the wage gap was smaller by 8.51 percentage points.
+
+The second model:
+- The coefficient on y85 represents how much average wage has changed from 1978 to 1985 for men with no education (years of education equal to 0).
+- With y85educ12 coefficient we get a different interpretation for coefficient on y85. Now it represents how much average wage has changed from 1978 to 1985 for men with 12 years of education, which is around 33.9%. 
+
+The third model:
+The adjustment of inflation for log wages in 1985 is actually just a linear transformation. After the adjustment, the wages in 1985 are closer to the wages in 1978. Thus the total variation of log wage is smaller. Notice that the variation of log wages is still the same after controlling the year, thus the estimates of the coefficients on all other regressors besides y85 are the same. Therefore, the residuals and the sum of squared residuals are the same. This implies R-squared is now smaller. Only the coefficient on y85 is different, while all others remain almost the same.
+
+The fourth model:
+y85union is not statistically significant so there is little evidence that union participation affects wage.
+
+#### Limitations
+If we have actualy panel data, we could use fixed effects to control for unobserved heterogeneity that is fixed over times within the individual workers. In other words, we would use the variation within a worker to estimate the effect of different regressors on wages.
+
+### Identifying Assumptions
+If the fixed effects are correlated with the independent variables, pooled OLS gives biased estimates. 
+
+# Dataset 2: Fatality Rates Across States
+
+This study is aimed at investigating the causal effect of drunk driving laws on traffic fatalities. The data's observational unit is a year in a US state. It consists of 48 states and spans 7 year period from 1982 to 1988. Since all variables are observed for all entities and over all time periods, the panel is balanced. If there were missing data for at least one entity in at least one time period we would call the panel unbalanced. The key variables are traffic fatality rate (# of traffic deaths in that state in that year, per 10,000 state residents), tax on beer, and other variables such as legal drinking age, drunk driving laws, etc. 
+
+```{r}
+data(Fatalities)
+# convert df into pdata.frame format with new indices
+df <- pdata.frame(Fatalities, index=c('state', 'year'))
+# create a fatality rate column: proportion of alcohol-related in the population
+df$fatal_rate <- df$afatal / df$pop * 10000
+# this one is on vehicle related fatalities
+df$fatality_rate <- df$fatal/df$pop * 10000
+# create a lagged variable beer table
+df <- 
+  df %>%
+  group_by(state) %>%
+  mutate(diff_fatal_rate = fatal_rate - lag(fatal_rate),
+         diff_beertax = beertax - lag(beertax)) %>%
+  ungroup()
+glimpse(df)
+```
+When one only looks at the correlation between beer tax and fatality rate, there is a positive correlation. This is because we are not controlling for other factors such as quality of cars, roads, culture of drink-driving, traffic density, poverty, social problems and higher taxes, etc. These omitted variables are creating a bias on the causal effect. If all these unobserved variables are constant across time, panel data allows us to bypass the bias caused by them. 
+
+```{r}
+ggplot(df, aes(x=beertax, y=fatal_rate)) +
+  geom_point() +
+  geom_smooth(method='lm') +
+  theme_minimal() +
+  labs(title='Beer Tax and Fatality Rate Are Positively Correlated',
+       x='Beer Tax',
+       y='Fatality Rate',
+       subtitle='Scatterplot with Linear Regression')
+```
+
+# Fitting Models
+
+## Pooled Regression
+```{r}
+poolmod <- plm(fatal_rate ~ beertax + gsp + breath + jail + service + drinkage + dry + spirits, data=df, model='pooling')
+summary(poolmod)
+``` 
+
+
+## First Difference Model
+ we create new variables that represent the year-to-year change in each variable within a state. the change in the fatality rate in Alabama between 1982 and 1983, between 1983 and 1984, and so on. We then run the regression in these differences. This is closely related to the regression we ran above looking at the change between 1982 and 1988, but in this case we use all the year-to-year changes.
+### First Difference Model (two-period: 1982 and 1988)
+Take a first difference across two time periods, and this will remove the effect of omitted variable. 
+```{r}
+# subset the data
+Fatalities1982 <- subset(Fatalities, year == "1982")
+Fatalities1988 <- subset(Fatalities, year == "1988")
+# compute the differences 
+diff_fatal_rate <- Fatalities1988$afatal - Fatalities1982$fatal_rate
+diff_beertax <- Fatalities1988$beertax - Fatalities1982$beertax
+# estimate a regression using differenced data
+fatal_diff_mod <- lm(diff_fatal_rate ~ diff_beertax)
+coeftest(fatal_diff_mod, vcov = vcovHC, type = "HC1")
+```
+
+### First Difference Model (all periods: 1982~1988)
+```{r}
+fdmod <- plm(fatal_rate ~ beertax + gsp + breath + jail + service + drinkage + dry + spirits, data = df, model = "fd")
+summary(fdmod)
+```
+
+### Identifying Assumptions:
+There are certain problems inherent to the First Difference Estimator:
+1) Since we take out all the time-independent variation in the independent variables, we effectively reduce the amount of variation we can use in estimation, implying that estiation using first difference can become very imprecise. This is a problem that can be solved as we increase sample size.
+2) However, attenuation bias from measurement error is irreducible and in fact amplifies because noise tends to be time variant.
+3) We want strict exogeneity, and this assumption could be violated if we have omitted an important time-variant variable. This means future independent variable should not depend on current changes in the idiosyncatic errors. 
+4) We also need differenced errors to be uncorrelated for the standard errors and test statistics to be valid. Interestingly, uncorrelated original errors can have first differened errors that are in fact correlated over time. The serial correlation in the first differenced errors does not cause bias but the estimated standard errors are incorrect and can cause biass.
+
+```{r}
+
+
+```
+
+## Fixed Effect Model
+
+Having individual specific intercepts  capture heterogeneities across entities.Each intercept is dropped because each unit's own intercept is calculated. It allows us to control for unobserved time-independent factors and estimate effect of variables that do vary over time.
+
+Fixed effect model is also called within estimator, and time demean all variables to model data. Just like First Difference, the model reduces the total amount of variation in the data that exacerbates attenuation bias due to measurement error in the independent variables. In fact, when there are only two periods, the fixed effect model and the first difference model are the same. However, when there are more than two periods, FE and FD are not equivalent, although they are both unbiased given that all the relevant assumptions hold. FE implies we look at deviations in the variables from average for each individual over the period. On the other hand, FD implies that we look at period-to-period hanges in the variables. Per-period changes may not be the same as eviations from the average over all time periods. Since both FE and FD are unbiased, we may choose between FE and FD depending on their relative efficiency. The efficency in turn depends on the serial correlation in the idiosyncratic errors U_it. If they are serially uncorrelated, FE is more efficient. If first differenced errors are serially uncorrelated, FD is more efficient. If T is large and N is small, FE can be very sensitive to violations of the classical fixed effect. If we can test whether 
+
+The greatest benefit of FE model is that we do not have to assume time-independent variables are uncorrelated with the independent variables of interest. 
+
+ In effect the FE model runs the pooled regression with a complete set of state dummy variables
+```{r}
+fe_mod1 <- plm(fatal_rate ~ beertax, 
+              data = df,
+              model = "within",
+              effect='individual')
+summary(fe_mod1)
+```
+
+```{r}
+fe_mod2 <- plm(fatal_rate ~ beertax, 
+              data = df,
+              model = "within",
+              effect='twoways')
+
+summary(fe_mod2)
+# print summary using robust standard errors
+coeftest(fatal_fe_mod, vcov. = vcovHC, type = "HC1")
+```
+Note that plm() uses the entity-demeaned OLS algorithm and thus does not report dummy coefficients.
+
+
+Controlling for variables that are constant across entities but vary over time can be done by including time fixed effects
+
+The combined model allows to eliminate bias from unobservables that change over time but are constant over entities and it controls for factors that differ across entities but are constant over time. Such models can be estimated using the OLS algorithm that is implemented in R.
+
+
+In our call of plm() we set another argument effect = "twoways" for inclusion of entity and time dummies.
+```{r}
+# estimate a combined time and entity fixed effects regression model
+
+# via lm()
+fatal_tefe_lm_mod <- lm(fatal_rate ~ beertax + state + year - 1, data = Fatalities)
+fatal_tefe_lm_mod
+
+
+coeftest(fatal_tefe_mod, vcov = vcovHC, type = "HC1")
+```
+ we conclude that the estimated relationship between traffic fatalities and the real beer tax is not affected by omitted variable bias due to factors that are constant over time.
+ 
+### Identifying Assumptions
+We must assume strict exogeneity of the explanatory variables which implies that each error should be uncorrelated not only with the independent variables in the given period, but also with all the independent variables in all other periods. This is the key assumption for FE to give unbiased estimates.
+
+
+When there is both heteroskedasticity and autocorrelation, the so-called heteroskedasticity and autocorrelation-consistent (HAC) standard errors need to be used. Clustered standard errors belong to these type of standard errors. They allow for heteroskedasticity and autocorrelated errors within an entity but not correlation across entities.
+```{r}
+# obtain a summary based on clusterd standard errors 
+# (adjustment for autocorrelation + heteroskedasticity)
+coeftest(fatal_tefe_mod, vcov = vcovHC, type = "HC1")
+```
+
+### Nicely formatted table
+```{r}
+rob_se <- list(sqrt(diag(vcovHC(fatalities_mod1, type = "HC1"))),
+               sqrt(diag(vcovHC(fatalities_mod2, type = "HC1"))),
+               sqrt(diag(vcovHC(fatalities_mod3, type = "HC1"))),
+               sqrt(diag(vcovHC(fatalities_mod4, type = "HC1"))),
+               sqrt(diag(vcovHC(fatalities_mod5, type = "HC1"))),
+               sqrt(diag(vcovHC(fatalities_mod6, type = "HC1"))),
+               sqrt(diag(vcovHC(fatalities_mod7, type = "HC1"))))
+
+stargazer(fatalities_mod1, fatalities_mod2, fatalities_mod3, 
+          fatalities_mod4, fatalities_mod5, fatalities_mod6, fatalities_mod7, 
+          digits = 3,
+          header = FALSE,
+          type = "latex", 
+          se = rob_se,
+          title = "Linear Panel Regression Models of Traffic Fatalities due to Drunk Driving",
+          model.numbers = FALSE,
+          column.labels = c("(1)", "(2)", "(3)", "(4)", "(5)", "(6)", "(7)"))
+
+```
+
+
+### Hypothesis testing on subset of variables
+```{r}
+linearHypothesis(fatalities_mod4, 
+                 test = "F",
+                 c("log(income)", "unemp"), 
+                 vcov. = vcovHC, type = "HC1")
+
+```
+
+
+### Testing Time-fixed effects
+Fixed effect model on years
+```{r}
+fixed.time <- plm(y~x1 + factor(year), data=df, index=c('country','year'), model='within')
+pFtest(fixed.time, fixed) # if the pvalue is low, then we dont need to use time-fixed effect
+```
+
+## Random Effect Model
+asdasd
+asdasd
+asdasd
+```{r}
+re_mod <- plm(fatal_rate ~ beertax, data=df, model='random')
+summary(re_model)
+```
+
+```{r}
+stargazer(poolmod, fdmod, fe_mod1, fe_mod2, re_mod, type='text', title='Comparison of Panel Data Models', column.labels=c('Pooled OLS', 'First Difference', 'State FE', 'St-Yr FE', 'RE'))
+
+```
+
+
+### Hausman Test
+Fixed Effect model v random effet model.
+```{r}
+phtest(fixed, random) # null hypothesis: errors are not correlated with the regressors
+# if pvalue is low, then we need to use fixed effects
+```
+
+
+## Testing for Random Effect: Breusch-Pagan Lagrange Multiplier
+```{r}
+pool <- plm(y~x1, data=df, index=c('country','year'), model='pooling')
+plmtest(pool, type=c('bp')) # Breusch-Pagan Lagrange Multiplier for random effects; null is no panel effect (i.e. OLS better)
+```
+
+## Testing for Serial Correlation
+```{r}
+pbgtest(fixed) # null=no serial correlation
+```
+
+## Testing for Unit roots/stationarity
+```{r}
+library(tseries)
+adf.test(panel.set$y, k=2) # null hypothesis: unit roots are present
+
+```
+
+## Testing for Heteroskedasticity
+```{r}
+library(lmtest)
+bptest(y~x1 + factor(country), data=df, studentize=F) # null: no heteroskedasticity
+
+```
+
+## Fix Heteroskedasticity
+### Fixed Model
+```{r}
+coeftest(fixed) # original coefficients
+coeftest(fixed, vcovHC)  # heteroskedasticity consistent coefficients
+coeftest(fixed, vcovHC(fixed,method='arellano')) # Arellano method
+coeftest(fixed, vcovHC(fixed, type='HC3')) # type 3 Heteroskedasticity-Conssitent
+t(apply(c('HC0','HC1','HC2','HC3','HC4'), function(x) sqrt(diag(vcovHC(fixed, type=x)))))
+```
+
