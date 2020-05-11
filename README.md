@@ -6,8 +6,8 @@
 - randomized control trial: Effect of Remedial Teacher on Student Performance - Banerjee, Cole, Duflo, and Linden (1997)
 - instrumental variable: Compulsory Education on Earnings - Angrist & Krueger (1991)
 - regression discontinuity: Autonomy of Schools on Student Graduation - Clark (2004)
-- difference in differences
-- panel data
+- difference in differences: Workers' Compensation and Injury Duration - Meyer (1995)
+- panel data: pooled cross section data from Census survey and state's traffic fatality data from Bureau of Labor Statistic
 
 2. Replication of a recent study in *American Economic Review (AER)* journal
 
