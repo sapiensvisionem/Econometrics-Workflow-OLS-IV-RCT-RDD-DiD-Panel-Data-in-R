@@ -1,10 +1,30 @@
 ---
 title: "Applied Microeconometrics"
 author: "Ji Hun Lee"
-date: "May 4, 2020"
+date: "April 15, 2020"
 output: html_document
 ---
 
+# Introduction
+The goal of this paper is to guide workflows for causality studies that are predominantly used in econometrics. I use the workflows in this paper to adapt to other problems and data.
+
+For instance, the first example done in this paper is to establish causal effect of education on wages. Note that this is fundamentally a different question from "Can we use education to forecast wage" (predictive) or "How does education vary with wage" (descriptive). For prediction, we can use machine learning algorithms specialized for this purpose.
+
+## Identification Strategy
+
+A good identification strategy of causal effect is a clearly specified source of identifying variation in a causal variable, combined with particular econometric technique to exploit this information. Assessing empirical data, causal inference is the best done with randomized control trials because they generate counterfactual data. Randomized trials ensure that outcomes in a control group capture the counterfactual in a treatment group, but RCT are rare in practice. Unfortunately, most often, we only have observational data. This causes identification problems because many different theoretical models and causal interpretations can be consistent with the same data. 
+
+Econometrics applies model to data and rigorously tests the assumptions of model to make a statement about causality. More specifically, econometrics attempts to address challenges of observational data: confounding effects (omitted variables), simultaneity, and correlation doesnt imply causation. In order to analyze observational studies, we can employ the following identification strategies that are used in this post:
+
+1. Ordinary Least Squares: controls for observable differences between comparison groups
+2. Randomized Control Trials
+3. Instrumental Variable: use exogenous source of variation
+4. Regression Discontinuity: use exogenous source of variation
+5. Difference in Differences: uses pre-post comparisons of control and treatment groups to control for unobservable differences
+6. Panel Data: use pre-post comparisons on the same unit of observvation to control for fixed unobservable differences
+    - Pooled OLS, First Difference, Fixed Effect, Random Effect
+
+#### Libraries
 Import Libraries prior to analysis:
 ```{r message=FALSE}
 library(did)
@@ -26,22 +46,16 @@ library(tidymodels)
 library(robustbase)
 ```
 
-# Introduction
-The goal of this study is to establish causal effect of education on wages. Note that this is fundamentally a different question from "Can we use  education to forecast wage" (predictive) or "How does education vary with wage" (descriptive).
-
-Our data is collected via only observing the outcome - wage - in the actual choice scenario of enrolling in higher education. It would be great if we can construct counterfactual outcomes to answer the question: what would happen if an individual had a different educational attainment. Not being able to observe disparate outcomes (educated vs uneducated) at the same time for the same individual experimental unit is hard.
-
-Assessing empirical data, Causal inference is the best done with rando mized control trials because they generate counterfactual data. However, most often we only have observational data. This causes identification problems because many different theoretical models and many diffferent causal interpretations can be consistent with the same data.
-
-Some other highlights are:
-- I will use college performance data to investigate the relationship between academic performance in college, gender, and cognitive ability.*
-- I will use housing data to determine the causal effect of house features on the price
-
+# Ordinary Least Squares
+The first methodology is ordinary least squares, or linear regression. Our data is collected via only observing the outcome - wage - in the actual choice scenario of enrolling in higher education. OLS makes inferences about unknown population slope coefficients - in this case the effect of education on wage. For causal inference, we need to control for observable differences between comparison groups. Ordinary Least Squares can give us a causal interpretation if its identification assumptions are met.
 
 # Data Inspection and Variables
 The first dataset is the NLS sample of young men containing information on hourly wage in cents (wage) and years of schooling (educ) in 1976. Since we want to estimate the causal effect of education on wages, our response variable is wage and our main variable of interest is educ. 
 
-The other datasets have a view below.
+The other datasets are also examined. They are:
+- use college performance data to investigate the relationship between academic performance in college, gender, and cognitive ability.
+- use housing data to determine the causal effect of house features on the price.
+
 
 ```{r}
 df <- read_dta('C:/Users/jihun/Downloads/applied_microeconometrics/CARD.DTA')
@@ -59,50 +73,32 @@ glimpse(df3)
 ```
 
 ## Data Restriction
-- Measurement Requirements
-- Non-random experiment
+As discussed earlier, we need to keep in mind of data collection background because it can affect the assumptions needed for oLS in having valid results. For instance, in the first dataset, IQ needs to be measured prior to education because education can increase intelligence and dilute the effect of education. For example, one could imagine that ability is increasing more for those who are in high school or college instead of having dropped out. We want to measure KWW (variable measuring intelligence) before high school such that we avoid having a measure of ability that is affected by education. 
 
-As discussed earlier, we need to keep in mind of survey design restriction because it can affect the assumptions needed for oLS to have valid results. For instance, in the first dataset, IQ needs to be measured prior to education because education can increase intelligence and dilute the effect of education. We want to measure KWW before high school such that we avoi having a measure of ability that is affected by education. For example, one could imagine that ability is increasing more for those who are in high school or college instead of having dropped out.
+#### Lurking Variable
+When data are based on non-random observational data, For college performance data, we suspect that there is a lurking variable such as motivation or low psychic cost of stuying that affects both GPA and SAT score, and the non-random selection into college can hide the effect of this variable.  We will need to control for these kinds of variables to make the zero conditional mean expectation assumption of OLS credible.
 
-We also need to be mindful of whether our variable of interest is something that can be chosen (e.g. gender is something not chosen). In the case of gender, the interpretation of coefficient is, difference between average of male response and female response.
+#### Ideal Experiment
+It helps to think about what would be the ideal experiment for this kind of data. For instance, we can randomize a person's gender at the time of college entrance. This would help estimate the effect of all that comes with being female during college, but not before college. However, such experiemnt would be infeasible and unethical. One can argue both ways whether estimating the causal effect of being female is meaningful. How useful such estimation is can depend on whether we are able to make choices or change the values on our gender.
+
+We also need to be mindful of whether our variable of interest is something that can be chosen (e.g. gender is something not chosen). In the case of gender, the interpretation of coefficient is, difference between average of male response and female response. Look at the result below:
 
 ```{r}
 ggplot(df2, aes(x=factor(female), y=colgpa)) +
   geom_violin(aes(fill=factor(female))) +
   geom_boxplot(width=0.4) +
   theme_minimal() +
-  labs(title='Boxplot',
+  labs(title='Females have a higher average GPA',
+       subtitle='Boxplot-Violinplot',
        x = 'gender',
-       y = 'gpa')
-  
+       y = 'gpa',
+       fill='gender-Female')
 ```
 
-When data are based on non-random observational data, For college performance data, we suspect that there is a lurking variable such as motivation or low psychic cost of stuying that affects both GPA and SAT score, and the non-random selection into college can hide the effect of this variable.  We will need to control for these kinds of variables to make the zero conditional mean expectation assumption of OLS credible.
-
-It helps to think about what would be the ideal experiment this kind of data. We can randomize a person's gender at the time of college entrance. This would help estimmate the effect of all that comes with being female during college, but not before college.
-
-However, such experiemnt would be infeasible and unethical. One can argue both ways whether estimating the causal effect of being female is meaningful. How useful such estimation is can depend on whether we are able to make choices or change the values on our gender.
-
+#### Measurement Error
 Can we suspect variable to be truthfully reported by subjects? What issues can arise if variable is measured with error. How does this affect OLS estimates?  Underreporting of variable like drinking habit can cause inconsistent OLS estimates. Coefficient will be biased if there is a correlation between measurement error and reported drinking. Measurement error always increases standard errors. Measurement error's internal variance amplifies the uncertainty of estimate. Measurement error like this can cause attenuation bias, causing estimate to shrink toward zero.
 
-# Identification Strategy
-
-A good identification strategy of causal effect is a clearly specified source of identifying variation in a causal variable, combined with particular econometric technique to exploit this information. Randomized trials ensure that outcomes in a control group capture the counterfactual in a treatment group, but RCT are rare in practice. 
-
-Econometrics applies model to data and rigorously testing the assumptions of model to make a statement about causality. More specifically, econometrics attempts to address challenges of observational data: confounding effects (omitted variables), simultaneity, and correlation doesnt imply causation. In order to analyze observational studies, we can employ the following identification strategies.
-
-1. Regression controls for observable differences between comparison groups
-2. Instrumental Variable and Regression Discontinuity use exogenous source of variation
-3. Difference in Differences uses pre-post comparisons of control and treatment groups to control for unobservable differences
-4. Panel data techniques: use pre-post comparisons on the same unit of observvation to control for fixed unobservable differences
-
-# I. Ordinary Least Squares
-
-Regression Technique makes inferences about unknown population slope coefficients - in this case the effect of education on wage. For causal inference, we need to ccontrol for observable differences between comparison groups.
-
-
-## Control Variable
-
+## Controls
 In order to reduce omitted variable bias, we need to include control variables into our regression model. We will control for intelligence of our subjects to control for systematic variation of wage with respect to subject's intelligence.
 ```{r}
 lmod1 <- lm(lwage~educ+KWW, data=df)
@@ -110,12 +106,12 @@ lmod1$call$formula
 ```
 
 ### Overcontrolling
-We need to ensure whether our model has any Overcontrolling issues. In our case, there is no overcontrolling. For example, we don't need to include productivity as a variable when we already have education, IQ. 
+We need to ensure whether our model has any Overcontrolling issues. For example, we don't need to include productivity as a variable when we already have education, IQ. In our case, there is no overcontrolling.
 
 ## Data Preprocessing
-We need to choose data preprocessing before running our econometric methods. In our example, we need to decide whether a categorical or numeric variable is better suitable. Depending on how we encode our educ variable as numeric or categorical, interpretation becomes very different. For instance, is education better in terms of years in education or degree earned? College degree will be educ >= 16, HS will be >= 12 and <16. The question will ask whether the wage only responds to the degree i.e. whether wage jumps at the moment an individual obtains a degree and do not change everywhere else, or the wage increases linearly with years of education.
+We need to choose data preprocessing method before running our econometric model. In our example, we need to decide whether a categorical or numeric variable is better suitable. Depending on how we encode our education variable as numeric or categorical, interpretation becomes very different. For instance, is education better in terms of years in education or degree earned? College degree will be educ >= 16, HS will be >= 12 and <16. The question will ask whether the wage only responds to the degree i.e. whether wage jumps at the moment an individual obtains a degree and do not change everywhere else, or the wage increases linearly with years of education.
 
- Log Transformation: can be used to normalize the response variable, but changes *wage* to percentages, not levels. The choice of log-transformation depends on whether we will define the response in terms of percentage or original unit.
+Log Transformation can be used to normalize the response variable, but changes wage to percentages, not levels. The choice of log-transformation depends on whether we will define the response in terms of percentage or original unit.
    - benefit 1: often fit CLM assumption better -> normalize error and fix heteroskedasticity
    - benefit 2: can be a better, more plausible functional form in linear regression
    - benefit 3: easier to interpret - approximate percentage changes
@@ -143,8 +139,9 @@ Interpretation of coefficient needs to be in the presence of control. We need to
 As shown in the table above, the coefficient for educ is 0.02.
 As shown in the second table above, the coefficient for HS and COL are 0.13 and 0.2, respectively.
 We can interpret the number 0.02 as a 'person would have received 2.1% higher wage on average if the person had one year longer education and had the same KWW.' The estimated coefficient measures the relationship between lwage and the unique variation in educ - partialling out.
-    
-Is it statistically different from zero, vary signiifor in other words, can we reject the null hypothesis that beta = 0? does it vary significantly with response? if it is not, we dont have to allow for the variable. Yes, it is statistically significant.
+
+#### Statistical Significance
+Is it statistically different from zero (aka statisticall significant)? In other words, can we reject the null hypothesis that beta = 0? does it vary significantly with response? if it is not, we dont have to allow for the variable. In our example, yes, it is statistically significant.
 
 F-test rejects the null hypothesis that the coefficients on the two types of education return are equal.
 ```{r}
@@ -174,9 +171,7 @@ df1 %>%
 ```
 
 ### Interaction Effects
-  
-We need to check whether there is any interaction effect on the variable of interest with any other control variables. In our case, we want to check for interaction between the number of years in schooling and degrees. For instance, we want to know if additional year of schooling for high school degree is statistically varying with lwage. We can see that having additional year of schooling after HS degree is not statistically significant on wage level, but it is for college degree. We test whether the coefficient for interaction is zero to check whether the return to education differs by years of schooling. The p-value for educ x college is quite lower than the usual threshold of 0.05 and we can think of this as an evidence that the return to education differs according to the years of schooling after college degree. The return to education is about 42 units higher compared to the one with zero schooling
-
+We need to check whether there is any interaction effect on the variable of interest with any other control variables. In our case, we want to check for interaction between the number of years in schooling and degrees. For instance, we want to know if additional year of schooling for high school degree is statistically varying with lwage. We can see that having additional year of schooling after HS degree is not statistically significant on wage level, but it is for college degree. We test whether the coefficient for interaction is zero to check whether the return to education differs by years of schooling. The p-value for educ x college is quite lower than the usual threshold of 0.05 and we can think of this as an evidence that the return to education differs according to the years of schooling after college degree. The return to education is about 42 units higher compared to the one with zero schooling.
 ```{r}
 summ(lm(wage ~ educ + KWW + educ*HS + educ*COL, data=df))
 ```
@@ -185,11 +180,10 @@ As for the housing data, we can look at the variable of interest's significance 
 ```{r}
 summ(lm(price ~ sqrft*colonial + bdrms*colonial + lotsize*colonial - colonial, data=df3))
 ```
-The coefficient for interaction of lotsize and colonial is significant, but once we remove the insignificant interaction terms it becomes insignifican (such as interactions with sqrft and bdrms). So we can conclude that there is no evidence that the effect of housing characteristics on price differs across colonial. Again, this is expected as the style itself is not as important as other key factors affecting housing price.
+The coefficient for interaction of lotsize and colonial is significant, but once we remove the insignificant interaction terms it becomes insignificant (such as interactions with sqrft and bdrms). So we can conclude that there is no evidence that the effect of housing characteristics on price differs across colonial. Again, this is expected as the style itself is not as important as other key factors affecting housing price.
 
 ### Multicollinearity
-
-We should always check for multicolinearity in the data because in the presence of collinearity, there is little unique variation in each X and it is hard to disentangle effect of one X from other correlated X. Linear regression measure partial effect of variable holding all other variables constant, but when there is a high collinearity, It makes inference more difficult because it causes both bias and increases standard error in our coefficients. There is no pronounced collinearity in our data.
+We should always check for multicolinearity in the data because in the presence of collinearity, there is little unique variation in each X and it is hard to disentangle effect of one X from other correlated X. Linear regression measure partial effect of variable holding all other variables constant, but when there is a high collinearity, it makes inference more difficult because it causes both bias and increases standard error in our coefficients. There is no pronounced collinearity in our data.
 
 ```{r}
 print(ggcorr(df, method = c("everything", "pearson")))
@@ -199,13 +193,12 @@ print(ggpairs(df, progress=F))
 ```
 
 ### Omitted Variables
-
-Omitted Variables create bias in coefficients. 
+Omitted Variables create bias in coefficients. There are four situations to consider:
   - When correlation between X1 and X2 is positive and omitted variable has positive slope, then it inflates slope.
   - When correlation between X1 and X2 is negative and omitted variable has negative slope, then it inflates slope. 
   - When correlation between X1 and X2 is positive and omitted variable has negative slope, then it deflates slope.
   - When correlation between X1 and X2 is negative and omitted variable has positive slope, then it deflates slope.
-We can see what the sign of bias was by how the coefficient changed. If it increased, then bias was negative. If it decreased, then bias was positive. If coefficient on control is positive and bias is positive, then correlation between control and variable must be positive. If new control is not significant and other coefficients do not change.
+We can see what the sign of bias was by how the coefficient changed. If it increased, then bias was negative. If it decreased, then bias was positive. If coefficient on control is positive and bias is positive, then correlation between control and variable must be positive. If a new control is not significant, then other coefficients do not change.
   
 Omitted variable is a problem because it splits the correlation between observed variable X1 and omitted variable X2. However, when two independent variables are uncorrelated, there is no omitted variable bias.
 
@@ -215,10 +208,9 @@ lmod4 <- lm(lwage ~ HS + COL + KWW + age, data=df)
 summ(lmod4)
 ```
 
-We check the sensitivity of coefficients and statistical significiance. There is a little change in the coefficient values after inclusion of age control variable. Since the coefficients have increased, we can claim that the omitte variable bias was negative and deflated the true value of college's wage premium. Older people tend not to have college degree so there is a negative correlation between college degree and age. It is important to note that all the existing variables are still statistically significant after controlling for age variable.
+We check the sensitivity of coefficients and statistical significiance. There is a little change in the coefficient values after inclusion of age variable. Since the coefficients have increased, we can claim that the omitte variable bias was negative and deflated the true value of college's wage premium. Older people tend not to have college degree so there is a negative correlation between college degree and age. It is important to note that all the existing variables are still statistically significant after controlling for age variable.
 
 The only way to remove omitted variable bias in the variable of interest is to add additional determinants of Y and control them.
-
 ```{r}
 summ(lm(price ~ sqrft + bdrms + lotsize + colonial, data=df3))
 ```
@@ -227,26 +219,17 @@ The coefficient on colonial is not significant - colonial does not have much eff
 The omitted variable bias can be calculated by simply looking at the differences in the coefficients of the regressions with and without the control. The difference is the omitted variable biass. 
 
 ## OLS Assumption Validation
-
-Validate assumtions
-  1. linear in parameters
-  2. random sampling
-  3. no perfect colliearity among variables
-  4, zero conditional mean needs to hold
-  5. homoscedasticity: error variance is not the same across all values of the independent variables
+The following assumptions need to hold for causal interpretation to hold:
+  1. no strong colliearity among variables
+  2. zero conditional mean needs to hold (no omitted variables, self selection, simultaneity, measurement error, etc)
+  3. homoscedasticity: error variance is the same across all values of the independent variables
+  4. normality of errors
   
 ### Zero Conditional Mean
 
 Violation of this assumption causes a biased estimate.
 
 We prove coefficient is unbiased (4th assummption) by showing that for every combination of variable of interest and control (zero conditional mean assumption), mean value is around 0 by creating group_by table and see if there is any systematic variation. Also, we use fitted value versus residual plot and see if residuals are around 0 horizontal line. If there is a pattern, then there is an omitted variable bias which is creating systematic variation in response not accounted for by control or variable.
-
-Another way is to check the diagnostic plots, in particular residual vs fitted value plot to see if the mean of residuals per fitted value is zero.
-
-```{r}
-plot(lmod4)
-```
-
 ```{r}
 lmod <- lm(lwage~educ+KWW, data=df)
 df %>%
@@ -255,16 +238,13 @@ df %>%
   group_by(educ, KWW) %>%
   summarise(conditional.mean = mean(residuals))
 ```
+Another way is to check the diagnostic plots, in particular residual vs fitted value plot to see if the mean of residuals per fitted value is zero.
+
+```{r}
+plot(lmod4)
+```
 
 As for the housing data, the coefficients are likely to be biased, since there are some important factors that affect housing prices that are missing here. One such variable could be proximity to the city center. We should also consier if we could collect additional data on environmental factors, which control variables would I include to make the zero conditional mean assumption credible. For example, the proximity to the city center may be an important factor. We would also like to collect data on neighborhood characteristics such as crime rate of the neighborhood.
-
-
-## Precision of Estimates
-   
-Precision of estimates is dependent on:
-  - small collinearity
-  - large sample size 
-  - big variation within the variable of interest
 
 ### Homoscedasticity Check
 
@@ -340,6 +320,13 @@ In the robust regression model, the standard errors do not change much, as we fo
 
 When using log transform, whether we use the transform would depend on how we believe the world works. Do we expect that an increase in the characteristics of a house would cause increase in levels of the housing prices? Or do we expect that they would cause an increase in percentages? the answer will depend on your argument
 
+## Precision of Estimates
+   
+Precision of estimates is dependent on:
+  - small collinearity
+  - large sample size 
+  - big variation within the variable of interest
+
 ## Evaluating Model
 
 We can use the following metrics to evaluate the fitness of our model.
@@ -395,7 +382,6 @@ _________________________________________________________________________
 IV is an alternative method to OLS or randomized experiment. Randomized experiment is often not feasible, and OLS doesnt always have all unobserved confounding variables. For example, let us consider a model relating education and wage. OLS assumes zero conditional mean and that the only effect of X on Y is through beta x X. However, we need to account for ability that can induce a correlation between X and error. In this case, X is endogenous, and people with high ability are likely to have high education. This renders OLS estimator inconsistent and cannot be abscribed causal interpretation.
 
 IV is a way to deal with endogeneity bias used when a model has an endogenous variable X.  In theory, it its able to detect movements in X that are uncorrelated with error U, and use these to estimte beta. IV is used in cases where the following cases are of concern when 1) omitted variable bias 2) selection bias 3) simultaneity of Y and X 4) error in measurement can cause nonzero
-
 
 ## Dataset
 This data set investigates the causal effect of compusory eucation on earnings. Their identification is based on the fact that, given laws on school enrollment mandate that kids can enter school if their birthday is before January 1st of the year school starts and then can drop out at the completion of their 16th year, people born earlier in the year reach the minimum age for dropout before people born later in the calendar year and hence can dropout with less education. If the time of the year in which people are born affects wages only through this effect years of compulsory education then it is possible to use this exogenous variation to estimate the effect of compulsory schooling on earnings for the population affecte by these constraints. This is a natural-experiment setting, where arguable exogenous mechanism that generates variation in the treatment is well understood and created by the institution/laws. 
@@ -479,7 +465,6 @@ Always report the first stage. Ask two questions:
 Never use the weak instruments from the first stage regression.
 
 ### Test Exogeneity
-
 One major consequence of IV estimate's endogeneity is that its asymptotic bias is worse than OLS bias. A small correlation between the instrument and the error could cause a large bias if the instrument is weak.  If we dont have exogeneity, then IV estimator will be biased and will have high SE.
 
 If instrument is weak and is not exogenous, then the IV estimator can be very misleading. In this case, OLS is biased but we know the direction and sign of bias, then we may use the OLS estimato as the bound of the true value. For example, if we know the OLS estimator is biased upward, then we can think of OLS as the upper bound of the true value. 
