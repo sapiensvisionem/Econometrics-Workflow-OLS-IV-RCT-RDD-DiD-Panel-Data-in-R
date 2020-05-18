@@ -1,4 +1,4 @@
-# Applied-Microeconometrics-Project
+# Applied-Microeconometrics
 
 Empirically prove causality via rigorous econometric methods. I created a custom made script for doing this kind of study in R by working through datasets in well-cited papers from microeconomics.
 
