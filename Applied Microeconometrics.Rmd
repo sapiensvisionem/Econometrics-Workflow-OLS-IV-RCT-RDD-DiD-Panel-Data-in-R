@@ -372,7 +372,12 @@ The fits look similarand the performance of the fit does not seem to differ acro
 _____________________________________________________________________________________________________________________________________
 # Randomized Control Trial
 
-Randomized Control Trial is the best one can get with data source for stuying causality.
+Randomized Control Trial is the best study design one can get with data source for stuying causality.
+
+Some of the applications of randomized control trial in socioeconomic field are:
+- Tennessee STAR: class size on student achievement - Kruger (1999)
+- Worms - Miguel and Kremer (2004)
+- Charitable giving - DellaVigna, List, and Malmendier (2010)
 
 There are six steps to Randomized Control Trial:
 1. recruit sample of n units of observation
@@ -382,49 +387,47 @@ There are six steps to Randomized Control Trial:
 5. compare the average outcomes in the treatment versus control
 6. if outcomes are significantly different in the treatment group, then treatment has an intended effect
 
-Reason for randomization is that treatment and control groups will not differ systematically with respect to other characteristics that affect outcomess. However, there is still a pure chance that some units with better or worse outcomes happen to end up in the treatment or control group. As the size of treatment and control groups increases, the influence of pure chance on the results will fall, so we can mitigate the effect of pure chance by increasing sample size.
+The reason for randomization in experiment is that when randomized, treatment and control groups will not differ systematically with respect to other characteristics that affect outcomess. As such we can control for other variables and isolate the variable of interest's effect on outcome. However, there is still a pure chance that unit with different outcomes independent of treatment can happen to end up in the treatment and control groups and will disguise as the effect of treatment. As the size of treatment and control groups increases, the influence of pure chance on the results will fall, so we can mitigate the effect of pure chance by increasing sample size.
 
-Instead of being randomly assigned, if units select themselves into treatment and control groups, then we have a self-selection problem. The units rather than the researchers selected the type of treatment. Then, it is possible that the difference in outcome indeed reflects the causal effect of treatment but an alternative explanation that cannot be ruled out is that the units with a systematic traits will have had resulted in different outcomes anyway. This can cause systematic difference in outcomes, rather than the difference of treatment.  Selection bias can exist if there is a correlation between error term and treatment status.
+Instead of being randomly assigned, if units select themselves into treatment and control groups, then we have a self-selection problem. The units - rather than the researchers - select the type of treatment. Then, while it is possible that the difference in outcome indeed reflects the causal effect of treatment, an alternative explanation that cannot be ruled out is that the units with a systematic traits will have had resulted in different outcomes anyway. This can cause systematic difference in outcomes, rather than the difference of treatment.  
 
-How can we measure the effect of treatment? One way is to take a difference in average outcomes between the two groups, which consists of two parts: average treament effect on the treated and selection bias. The selection problem arises because at a given point in time an individual can only be treated or not treated. We don't know the case where individual was observed without treatment and cannot observe the counterfactual.
-
-## Using OLS
-
-For random assignemnt to work we need the independence assumption between treatment and other control variables.  and there are no observed or unobserved differences between treated or untreated. 
-
-We can use OLS on randomly assigned data. OLS estimate is called the difference estimator. 
-
-## Randomization Check
-There are informal tests to see whether is a problem with randomization:
-1. Run a regression using data before the treatment started using the treatment status, and this should not have any effect. This is a way to test any difference in potential outcomes between those who get treated and those who don't: We run  regression using pre-treatment data and test balance in pre-treatment variable
-2. Add control variables, and if the treatment is random, then the estimated coefficient does not change. If control variables are uncorrelated with the treatment, then they will not affect the estimated treatment effect (MLR and SLR coefficients will be similar)
-
-Adding control variables has the benefit that it may generate more precise estimate of causal effect:
-1. If the control variable has substantial explanatory power for outcome, the standard error of treatment effect will be smaller in the long regression model
-2. it will also reduce the residual variance, which lowers the standard error of regression estimates
+How can we measure the effect of treatment? One way is to take a difference in average of observed outcomes between treatment and control groups. This difference of averages can be split into two parts: average treament effect on the treated and selection bias. The average treatment effect on the treated is the desired quantity that we want to measure the effect of treatment. However, without randomization, this cannot be directly deduced because it requires knowing the counterfactual - what would have happened to the treated group if they didn't receive treatment? Similarly, the self-selection cannot be directly estimatedbecause at a given point in time an individual can only be treated or not treated. Fortunately, when experiment is well randomized, it does not have self-selection problem and difference in average is simply the average treatment on treated effect.
 
 ## Threats to Validity
-Internal Validity
-1. selection bias
-2. partial compliance
-3. attrition
-4. hawthorne effect
+It is very important to understand how experiment was conducted and assess its quality. There are many threats to the validity of experiment design.
 
-External Validity
+Internal Validity: if the estimated causal effects are valid for the studied population. No selection bias. Threats to internal validity exist when:
+1. selection bias - treatment is in fact not randomized and dependds on characteristics of unit that also affect the outcome
+2. partial compliance - not everoyne who is treated actually takes part of the treatment
+3. attrition - units with certain characteristics leave the experiment
+4. hawthorne effect - the experiment changes the individuals' behavior
+
+External Validity: the extend to which causal effects of a particular program in a particular situation at a particular time can be generalized to other situations and periods.
 1. representative population?
 2. representative situation/environment?
 3. representative program/treatment?
 
-Other Threats to Validity
-1. treatment should not affect untreated by spillovers or changes in market prices
-2. non-compliance: when units drop out of treatment, the difference in outcomes between the treatment and the control groups now estimates the average impact of offering the treatment, usually called intention-to-treat
+Other Threats to Validity:
+1. treatment should not affect untreated by spillovers or changes in market prices.
+2. non-compliance: treatment is offered randomly but some participants do not particiapte. when units drop out of treatment, the difference in outcomes between the treatment and the control groups now estimates the average impact of offering the treatment, usually called intention-to-treat. However, if attrition is random and affects the treatment and control groups in the same way, the estimates would remain unbiased.
 
-If attrition is random and affects the treatment and control groups in the same way, the estimates would remain unbiased.
+## Using OLS
+To measure treatment effect, we can use OLS on randomly assigned data. OLS estimate is called the difference estimator. OLS is a good tool for randomized control trial because the coefficient for dummy variable like treatment is simply the difference in averages - which is precisely what we want to measure. Also, OLS estimate has the added benefit of measuring a coefficient, holding other control variables fixed and measure the partial effect of variable on outcome. When selection bias exists or experiment is not internally valid, OLS has a correlation between error term and treatment status and induces endogeneity problem.
+
+### Adding Controls
+Adding control variables has the benefit that it may generate more precise estimate of causal effect of treatment:
+
+1. If the control variable has substantial explanatory power for outcome, the standard error of treatment effect will be smaller in the long regression model.
+2. It will also reduce the residual variance, which lowers the standard error of regression estimates.
+
+### Randomization Check
+For random assignemnt to work, we need the independence assumption between treatment and other control variables. Also, we should not observe any observed or unobserved differences between treated or untreated. There are informal tests to see whether is a problem with randomization:
+
+1. Run a regression using data before the treatment started using the treatment status, and no control variable should have statistically significant effect on the treatment status. This is a way to test any difference in potential outcomes between those who get treated and those who don't. 
+2. Add control variables, and if the treatment is random, the estimated coefficient should not change. If control variables are uncorrelated with the treatment and experiment is well randomized, then they will not affect the estimated treatment effect (MLR and SLR coefficients will be similar).
 
 ## Data
-Data comes from the paper 'Remedying Education: Evidence from two Randomized Experiments in India" by Banerjee, Cole, Duflo, and Linden (2007)
-It contains data for analyzing the effect of assigning a remedial teacher to schools at random in the indian city of Vadodara.
-
+Data comes from the paper 'Remedying Education: Evidence from two Randomized Experiments in India" by Banerjee, Cole, Duflo, and Linden (2007). It contains data for analyzing the effect of assigning a remedial teacher to schools at random in the Indian city of Vadodara. The narrow aim of the authors is to evaluate the immediate and lagged effect of the remedial program and their cost-effectiveness. The broad aim of the authors is to understand whether targeting school inputs to the right students leads to improvements in academic achievement, notwithstanding the fact that generally input-based policies in developing countries yield very discouraging results.
 ```{r}
 # data for school year 2001/2002
 df1 <- read_dta('C:/Users/jihun/Downloads/applied_microeconometrics/Y1.dta')
@@ -432,7 +435,6 @@ df1 <-
   df1 %>%
   mutate(pre_verbnorm = scale(pre_verb),
          pre_mathnorm = scale(pre_math))
-glimpse(df1)
 # data for school year 2002/2003
 df2 <- read_dta('C:/Users/jihun/Downloads/applied_microeconometrics/Y2.dta')
 # perfect compliance to treatment assignment
@@ -441,45 +443,201 @@ df3 <- read_dta('C:/Users/jihun/Downloads/applied_microeconometrics/case1.dta')
 df4 <- read_dta('C:/Users/jihun/Downloads/applied_microeconometrics/case2.dta')
 # imperfect compliance to treatment assignment; now individuals may drop out from treatment
 df5 <- read_dta('C:/Users/jihun/Downloads/applied_microeconometrics/case3.dta')
-
 ```
 
-Variables in Y1 and Y2 are normalized relative to the control group of the same year.
+Variables in Y1 and Y2 are normalized relative to the control group of the same year. The authors commented that they stratified on all the control variables we have in the data,so the control and treatment groups should be well balanced. We regress the treatment variable bbal on the observed characteristics of the students (pre-test score and male). None of the two variables are statistically different from 0 at conventional confidence levels. Here the key variable we want to be balanced is the pre-treatment scores, since it is the most relevant dimension that influences the outcome variable, the post-treatment scores.
 ```{r}
 lmod1 <- lm(bal ~ pre_totnorm + male, data=df1)
 summ(lmod1)
-
 ```
 
-
+We can estimate the one-year remedial treatment effect for Vadodara for both mathematics and verbal in 2001-2002. The effect of treatment is 0.18 standard deviation improvement for math performance and 0.13 standard deviation improvement for verbal performance. The effects are quite large, but not statistically significant at the 5% level for verbal performance. 
 ```{r}
 lmod2 <- lm(post_mathnorm ~ bal, data=df1)
-summ(lmod2)
-```
-
-
-```{r}
 lmod3 <- lm(post_verbnorm ~ bal, data=df1)
-summ(lmod3)
+stargazer(lmod2, lmod, style='aer', type='text', title='Estimation of 1-year treatment effects')
 ```
 
-
+This time, we estimate the treatment effect on the change in scores as the outcome. The effects are 0.2 standard deviation with s.e. 0.055 for math and 0.11 stnadard deviation with s.e. 0.057 for language. 
 ```{r}
-lmod4 <- lm(post_mathnorm ~ bal + pre_mathnorm, data=df1)
-summ(lmod4)
+lmod4 <- lm(I(post_mathnorm-pre_mathnorm) ~ bal + pre_mathnorm, data=df1)
+lmod5 <- lm(I(post_verbnorm-pre_verbnorm) ~ bal + pre_verbnorm, data=df1)
+stargazer(lmod4, lmod5, style='aer', type='text', title='Estimation of 1-year treatment effects')
 ```
 
+We can also estimate the two-year remedial treatment effect for Vadodara for both mathematics and verbal scores. We first merge the two datasets and standardize all relevant pre and post scores. The important thing here is to consider that 'only chilren who were in grade 3 in year 1 can be exposed for two years. Thus, the two year effect is estimated using substantially fewer students than the one-year effect". So, I matched the two data sets using the student id unique identifier, and the effect will be estimated only for students of grade 4.
 
+Results are 0.33 standard deviation for math and 0.21 standard deviation for verbal, both very high. given the sample size, we can have larger deviations from what they have in the paper, provided I normalized scores the same way they did. 
 ```{r}
-lmod5 <- lm(post_verbnorm ~ bal + pre_verbnorm, data=df1)
-summ(lmod5)
+# create new outcome variables that measure before and after score change in math and verbal
+df1_2 <- 
+  inner_join(df1,df2,by='studentid')
+df1_2 <-
+  df1_2 %>%
+  mutate(pre_mathnorm.x = scale(pre_math.x),
+         pre_verbnorm.x = scale(pre_verb.x)) %>%
+  mutate(math_score_change = post_mathnorm.y-pre_mathnorm.x,
+         verb_score_change = post_verbnorm.y-pre_verbnorm.x)
+
+lmod6 <- lm(math_score_change ~ bal.x + pre_mathnorm, data=df1_2)
+lmod7 <- lm(verb_score_change ~ bal.x + pre_verbnorm, data=df1_2)
+stargazer(lmod6, lmod7, style = 'aer', type = 'text', title = 'Estimation of 2-year treatment effects')
 ```
 
+### Experiment Validity Check
+Internal Validity: The paper seems to be ver robust in terms of internal validity, since the authors show or argue by institutional knowledge that treatment was actually randomly assigned, there were no different resources allocations, and attrition seems to be uncorrelated with the observables. Therefore, this seems to be a very good paper in terms of the credibility of identifying assumptions.
 
+External Validity: It would seem like this intervnetion is very successful and cost-effective. Thus, it would make sense to scale it up in India. Notice that the cost-effectiveness of the program comes from the very small pay that these remedial teachers receive, so if we increase the demand for these professionals a lot, we might end up paying a lot more for their services, unless the supply is inelastic. Hence the program would lose its most attractive feature. One thus needs to carefully consider the supply of these remedial teachers in the labor market before scaling up the program. Also, we don't know what is good about these remedial teachers: is it they are young, that they are much more similar to the students they teach to in terms of social background? Then if increasing the number of remedial teachers leads to a change in the type of these teachers aids the treatment effects might differ. Also notice we have an experiment in a poor and a richer urban setting, but we don't really know anything about implement the program in rural areas, which generally are much poorer, have stron teacher absenteeism problems, etc. Also, it's difficult to extrapolate these results to other developing countries since the remedial teacher is rather peculiar to India, and this country also seems to suffer a lot from teaching targeted to some elites, so we might assess if this is the case also in the other country one might think of extending the program to. Ggenerally, it is very difficult to generalize the results of social experiments tied to a specific institutional setting, especially when these interventions are complex and non-standardized.
 
+## Simulated Datasets Case1, Case2, and Case3
+These datasets are simulated based on the real data we analyzed above. In each case, some students are given a treatment and others entered the control group. Randomization may or my not have been performed correctly. The effect of treatment may be heterogeneous in the population - both along observable or unobservable dimensions. In some cases, there may be treatment group dropout. In no case, however, students assigned to the control group were treated, i.e. no treatment substitution bias. The treatment variable of interest is treated and the outcome variable is FinalScore. 
 
+First, we check for balane of pre-treatment covariates in the treatment and control groups. Something didn't work in the randomization since income and the pre-treatment scores predict the treatment status. People with higher income are more likely to be treated. This effect is not small because income varies from 50 to 300 a differenceo f 100 gives about 20 percentage points higher probability ofb eing treated. Instead, pre-treatment scores don't seem to impact the probability of treatment significantly. All else being equal 1 standard deviation higher pre-scores decreasses the probability of being treated by 1.25 percentage points. This seems more to be the effect of sampling variation and notice this bias works in the opposite direction of the income one. We should always look at magnitude and signs after looking at statistical significance of variables.
+```{r}
+lmod8 <- glm(treated ~ pre_totnorm + numstud + male + income + std, data=df3, family=binomial(link='logit'))
+summ(lmod8)
+```
 
+Next, we estimate the causal effect of the treatment on the outcome variable, check whether we need to control for any other pre-treatment variable to ensure consistency of the parameter of interest. Clearly, a naive regression of treatment on outcome gives a biased result, as income is also related to the outcome variable. After discovering treatment was not randomly assigned in the population, we cannot be sure what we estimate is the causal effect of interest, especially if you dont have many other control variables to perform sensitivity analysis.
+```{r}
+lmod9 <- lm(Finalscore ~ treated, data=df3)
+lmod10 <- lm(Finalscore ~ treated + income, data=df3)
+lmod11 <- lm(Finalscore ~ treated + income + pre_totnorm, data=df3)
+stargazer(lmod9, lmod10, lmod11, title='Estimation of Treatment Effect', style='aer', type='text')
+```
+We can improve the precision of our estimate. Notice the sharp decrease in the standard error of the treatment estimate after you add pre_totnorm: this variable explains a lot of the variation in the outcome variable, and consequently the final estimates are much less noisy.
 
+We can also perform a subgroup analysis by gender, and test if the treatment effect differs along observed dimensions in the population. At least along observable dimensions, there is no difference in the treatment effect since the coefficients on the interaction terms are all statistically insignificant. Also, notice that you need to add the main effects beyond the interactions in our regression, otherwise our interactions will pick up the main effects of the pre-treatment variables, even if there is no differential effect among these dimensions.
+```{r}
+lmod12 <- lm(Finalscore ~ treated*income + male*treated + treated*pre_totnorm, data=df3)
+stargazer(lmod12, style='aer',title='Estimation including interaction terms', type='text')
+```
+
+Supposing magically that we have been provided with counterfactuals Y0 and Y1, that is for every unit we know what would have happened if either the treated unit would have not been treated or the non-trerated unit would have been treated. We can now check if what we estimated is truly the causal effect of interest for the treated units. 
+```{r}
+# dissect income variable into four quartiles and look at density of performance change per each quartile
+df3 %>%
+  mutate(income_quantile = cut(income, breaks=quantile(income, probs = seq(0,1,0.25)))) %>%
+  drop_na(income_quantile) %>%
+  ggplot(aes(x=Y1-Y0)) +
+    geom_density(aes(color=income_quantile)) +
+    labs(title='Plots of Treatment Effect by Income Groups',
+        subtitle='Density Plots',
+        color='Income Quantile') +
+    theme_minimal()
+```
+This means that we have the true causal effect for everyone in the sample after controlling for income. In this case E(Y1-Y0|income) = E(Y1-Y0) coincides with the average treatment effect in the population, as treatment effects do not seem to be heterogeneous by income or other variables.
+
+### Dataset Case2
+
+#### Balance Test
+Everything is OK here. We can be pretty sure that we are estimating the causal effect of interest: in particular having balance in the pre-treatment scores seems to point in the direction of the randomization being successfully achieving its goal.
+```{r}
+lmod13 <- glm(treated ~ pre_totnorm + numstud + male + income + std, data=df4, family=binomial(link='logit'))
+stargazer(lmod13, title = 'Balance Test', style = 'aer', type = 'text')
+```
+
+#### Initial Model on Treatment and Expanded Model
+Simple regression is enough to achieve unbiased and consistent estimates of the causal effect. We don't really need to control for anything else as all other variables affecting treatment and the outcome are balanced between the treatment and control group. Adding more variables increases precision of estimates.
+```{r}
+lmod14 <- lm(Finalscore ~ treated, data = df4)
+lmod15 <- lm(Finalscore ~ treated + income + pre_totnorm, data = df4)
+stargazer(lmod14, lmod15, title = 'Estimation of Treatment Effect', style = 'aer', type = 'text')
+```
+
+#### Subgroup Analysis
+First, we notice that our effect is not any longer statistically different from zero. There seems to be a larger gain for males, but this efffect is not statistically significant at the 5% level. This is what we would call borderline statistical significance. The absolute magnitude howver, is not that big, and again the main effect is not statistically significant from zero. The treatment effect for males is borderline significant.
+```{r}
+lmod16 <- lm(Finalscore ~ treated*income + male*treated + treated*pre_totnorm, data = df4)
+stargazer(lmod16, style = 'aer',title = 'Estimation including interaction terms', type = 'text')
+```
+
+#### Density Plot on Counterfactuals
+
+Our estimate of 0.046 is very close to the true effect for the treated units, and it is actually the effect in the population. Notice the weird shape of the distribution of the effect in the population. It seems like there are two distributions mixed together.
+```{r}
+# density plot per treatment status
+df4 %>%
+  ggplot(aes(x=Y1-Y0)) +
+    geom_density(aes(color=factor(treated))) +
+    labs(title = 'Plots of Treatment Effect by treated',
+        subtitle = 'Density Plots',
+        color = 'Treatment') +
+    theme_minimal()
+
+```
+
+We can see that along an unobserved dimension the treatment effect is very different: for some people, it is on average -.20 and for other .29. Here the average treatment effect is actually very misleading, since we are missing that some people truly get something out of the treatment while for other people on average the effect is negative. Also even if before I could have concluded that the average treatment effect for those who are treated is slightly positive, now that I know the effect is highly heterogeneous I surely need to consier what drives the heterogeneity. So for instance if side==0 corresponds to those who are less wealthy implementing the treatment could have perverse distributional effects, since the less wealthy people will on average be worse off while the weawlthy people will improve their lot. In general this is not what you would want to see. The take-home lesson is that sometimes the average treatment effect for the treated, even if estimated without bias, can mask things we are not able to investigate and can be very misleading.
+```{r}
+# density plot per side
+df4 %>%
+  ggplot(aes(x=Y1-Y0)) +
+    geom_density(aes(color=factor(side))) +
+    labs(title = 'Plots of Treatment Effect by Side',
+        subtitle = 'Density Plots',
+        color = 'Side') +
+    theme_minimal()
+```
+
+### Case 3
+
+#### Balance Check
+Everything is OK here.  We can be pretty sure the randomization worked properly:  in particular having balance in the pre-treatment scores seems to point in the direction of the randomization working like it should. Among those who were actually treated I have richer people and people with slightlylower pre-treatment test scores. Given the randomization was OK this implies that therewas selective treatment dropout or treatment crossover.
+```{r}
+lmod17 <- lm(TreatmentGroup ~ pre_totnorm + numstud + male + income + std, data=df5)
+lmod18 <- lm(treated ~ pre_totnorm + numstud + male + income + std, data= df5)
+stargazer(lmod17, lmod18, style = 'aer', type = 'text', title = 'Balance test')
+```
+
+Poorer  people  were  more  likely  to  drop  out  from  the  treatment.   For  instance  an  income  100  units  higher  implies  40  percentage  points  less  likely  to  drop  out.   Also  thepre-treatment scores are statistically significant determinants of treatment dropout but notice that the effect is really small (2 percentage points more likely to dropout for 1more standard deviation in scores). 
+
+As  usual  notice  the  increase  in  precision  after  you  control  for  a  variable  with  strongexplanatory power.  The intention-to-treat effect is the broad effect, or policy effect, ofa dministering the treatment.  In the real world some people will decide to not take thetreatment  even  if  they  were  at  the  beginning  willing  to  take  it  and  some  people  who didn’t want to be treated will actually get the treatment.  So this is like a broad effect of administering the treatment, that takes into account the true behavior of people.  Thisis however not the true effect of the treatment for the treated, since in this context weare attributing the effect of the treatment to people who didn’t actually get treated (=treatment drop out).
+```{r}
+lmod19 <- lm(treated ~ pre_totnorm + numstud + male + income + std, data = df5, subset = (TreatmentGroup == 1))
+stargazer(lmod19, style = 'aer', type = 'text', title = 'Determinants of dropouts')
+```
+
+We run a naive regression of outcome on treatment. This is not the causal effect of the treatment on the outcome since we realized in step2 that people who are poorer drop out more than rich people, and being rich or pooris  surely  correlated  with  final  grades. You  can  see  this  also  by  the  fact  that  when you control for pre-scores (that are correlated with income) the point estimate on the treatment variable changes.
+```{r}
+lmod20 <- lm(Finalscore ~ TreatmentGroup, data = df5)
+lmod21 <- lm(Finalscore ~ TreatmentGroup + pre_totnorm, data = df5)
+stargazer(lmod20, lmod21, style = 'aer', type = 'text', title = 'Balance test')
+```
+
+We now instrument the treatment with the assignment to treatment and get the LATE. The local average treatment effect is the effect of the treatment for a particular subsetof the population, the “compliers”.  These are the people who in an IV setting receivea  treatment  because  they  are  affected  by  the  instrument.   Here  this  is  the  effect  oftreatment for those people who would be treated if they were assigned to the treatment,but  would  have  not  been  treated  in  the  counterfactual  case  in  which  they  were  not. assigned to the treatment group.  In experiments where there was treatment dropout orcross-overs this is very useful to estimate the effect for those who actually got treated.Also notice that for binary(dummy) treatment and instruments the LATE is defined.  That is the intention to treat effect divided by the difference of the fraction of the peoplewho  were  assigned  to  treatment  and  got  treated  and  those  who  were  not  assigned  totreatment  and  got  treated.   Here P(T=1∣Z=0)=0  since  there  was  no  cross-over, P(T=1∣Z=1)=0.693, and we estimatedIT T=.201.
+```{r}
+lmod22 <- lm(Finalscore ~ treated, data = df5)
+lmod23 <- lm(Finalscore ~ treated + pre_totnorm, data = df5)
+stargazer(lmod22, lmod23, style = 'aer', type = 'text', title = 'Balance test')
+```
+
+The average treatment effectY1−Y0among the treated population is 0.290.  So the LATE==E[Y1−Y0∣D1=1, D0=0]in this case was also the average effect of the treatment forthe treated population,T T=E[Y1−Y0∣D=1].
+```{r}
+lmod24 <- lm(Y1 - Y0 ~ treated, data = df5)
+lmod25 <- lm(Y1 - Y0 ~ TreatmentGroup, data = df5)
+stargazer(lmod24, lmod25, style = 'aer', type = 'text', title = 'Balance test')
+```
+Those people who belong to the lower distribution all dropped out of treatment whilethose who belong to the other distribution received the treatment.  Notice this is not fullyrational behavior.  Figure 5 shows the distribution of causal effects for those who droppedout (blue line) and those who actually received treatment (red line).  Everyone to the leftof the vertical line at zero would gain from treatment, while those to the left would not.Those who received treatment were therefore gaining more on average, while there existsome dropouts who would have gained and some who received treatment who would havebeen better of dropping out. Therefore, the people didn’t really know precisely what theywould have gotten out of being treated, yet they were able to understand their “type”and accordingly dropped out or got treated.  This is consistent with some informationstory where the individuals who are assigned to treatment understand something aboutthe potential gains but cannot truly estimate the causal effect.
+```{r}
+ggplot(df5, aes(x=Y1-Y0)) +
+  geom_density() +
+  labs(title = 'Plots of Treatment Effect',
+       subtitle = 'Kernel density estimate') + 
+  theme_bw()
+```
+RCT can be a powerful too to solve the problem of selection bias if randomization isdone properly and there is full compliance.  In this case, regressing the outcome on thetreatment  variable  can  give  us  an  unbiased  estimate  of  the  average  treatment  effect.However, when there is attrition or dropout, we would need to consider the sorting gain.In this case, treatment group is assigned randomly but the choice of receiving treatmentwithin  that  group  is  not  random.   We  can  get  the  intent-to-treat  effect  by  regressingoutcome on the randomized assignment variable.  If we want to understand the actualtreatment  effect,  we  are  only  able  to  estimate  the  local  average  treatment  effect  forthe  compliers  who  only  receiving  treatment  when  they  are  randomly  assigned  to  thetreatment group.
+```{r}
+df5 %>%
+  mutate(dropout = ifelse(TreatmentGroup == 1 & treated == 0, 1, 0)) %>%
+  ggplot(aes(x = Y1 - Y0)) +
+  geom_density(aes(color = factor(dropout))) +
+  geom_vline(xintercept = 0) +
+  labs(title = 'Plots of treatment effect for treated and dropouts',
+       subtitle = 'Kernel density estimate',
+       color = 'Dropout vs Treated') +
+  theme_bw()
+
+```
 
 _________________________________________________________________________
 # Instrumental Variable Regression
