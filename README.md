@@ -1,4 +1,7 @@
-# Applied-Microeconometrics
+# Econometric workflow
+
+Click the link:
+http://htmlpreview.github.io/?https://github.com/sapiensvisionem/Econometrics-Workflow-OLS-IV-RCT-RDD-DiD-Panel-Data-in-R/blob/master/Econometric-Workflow.html
 
 Empirically prove causality via rigorous econometric methods. I created a custom made script for doing this kind of study in R by working through datasets in well-cited papers from microeconomics.
 
