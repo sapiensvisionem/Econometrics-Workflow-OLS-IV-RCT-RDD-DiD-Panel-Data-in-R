@@ -6,7 +6,7 @@ output:
   html_document:
       toc: true
       toc_depth: 3
-      number_sections: false
+      number_sections: true
       toc_float:
         collapsed: false 
         smooth_scroll: false
@@ -537,7 +537,7 @@ We can estimate the one-year remedial treatment effect for Vadodara for both mat
 ```{r}
 lmod2 <- lm(post_mathnorm ~ bal, data=df1)
 lmod3 <- lm(post_verbnorm ~ bal, data=df1)
-stargazer(lmod2, lmod3, style='aer', type='text', title='Estimation of 1-year treatment effects')
+stargazer(lmod2, lmod3, style='aer',  type="text", title='Estimation of 1-year treatment effects')
 ```
 
 This time, we estimate the treatment effect on the change in scores as the outcome. The effects are 0.2 standard deviation with s.e. 0.055 for math and 0.11 stnadard deviation with s.e. 0.057 for language. 
@@ -913,6 +913,7 @@ What kind of problems does RDD deal with?
 ## Problem Setup
 
 Our data is from Damon Clark's paper (2004). Traditionally, schools in the UK have been funded and managed by Local Education Authorities (LEA). In London, this would be a borough with rather little in the way of autonomy given to individual schools. But the 1988 Education Act allowed schools to opt out of LEA control and become funded by central, not local, government with much more autonomy - and this was called Grant-Maintained. Schools could become GM if a simmple majority of parents chose that option in a ballot. So if 51% of parents voted for GM status then school would become GM-school while if 49% voted for it, it would remain under LEA control. This is the basis of the regression continuity design. The paper contributes to the debate about how public institutions like schools or hospitals should be run: should they be given a budget and left to spend it how they want or should they be more tightly controlled? In the case of GM schools, becoming GM resulted not just in more autonomy but also more resources, which were justified as the school now had to deal with some issues that had previously been handled by the LEA and by some people perceived to be bribes as the government wanted to encourage the growth of GM schools. Thus the change to GM resulted in both more autonomy and possibly more resources.
+
 ```{r}
 df <- read_dta('C:/Users/jihun/Downloads/applied_microeconometrics/damonclark.dta')
 # it has three variables: pass rate in the base year, two years after, and vote percentage
@@ -929,6 +930,7 @@ vote is the percentage vote in favor of the GM status
 1) What is the outcome of interest? Change in Pass Rate 
 2) What is the running variable, X? Vote percentage on whether to be autonomous or not
 3) What is the treatment variable D and how is it determined by X? D is a discontinuous function of X from a smooth and flexible function f(X) that controls the counterfactual. RD captures a causal effect by distinguish the treatment D from variable X.
+
 ```{r}
 # generate a dummy variable for a winning vote and one for a losing vote in the GM election where 50% is the critical threshold
 # generate a margin variable as the difference from threshold of victory in the vote
@@ -962,6 +964,7 @@ With fuzzy RDD, the avreage change in y around the threshold understate causeal 
 ## Data Preprocessing
 
 Clark restricts his sample to those schools with votes in favor of GM status between 15% and 85% because they are different in terms of covariates. They have particular motives for seeking GM status and exceptionally high baseline pass rates, whilst many schools in the tails of the voting distribution were threatened with closure.
+
 ```{r}
 df <-
   df %>%
@@ -973,6 +976,7 @@ df <-
 We can use visualiztion to check assumptions of the data.
 
 The first visualization is outcome by running variable X (aka forcing variable) and this is the stanadrd visualization showing the discontinuity in the outcome variable. We construct bins and average the outcome within bins on both sides of the cutoff. We look at the different bin sizes when constructing these graphs, and plot the forcing variable on the horizontal axis and the average of Y for each bin on the vertical axis. Then, we inspect whether there is a discontinuity at the threshold and whether there are other obvious unexpecte discontinuities.
+
 ```{r}
 df %>%
   mutate(bins = cut(df$vote, breaks=50)) %>%
@@ -988,6 +992,7 @@ df %>%
 ```
 
 We need to train various bin sizes.
+
 ```{r}
 df %>%
   mutate(bins = cut(df$vote, breaks=200)) %>%
@@ -1016,6 +1021,7 @@ df %>%
 ```
 
 We want the treatment and control groups to have similar distributions. First, we need to look at the density of the outcome variable for both treatment and control groups. 
+
 ```{r}
 df %>%
   ggplot(aes(x=passrate0)) +
@@ -1027,6 +1033,7 @@ df %>%
 ```
 
 We also need to look at the density of the running (forcing) variable. We should plot the number of observations in each bin. It allows us to investigate whether there is a discontinuity in the distribution of the forcing variable at the threshold. This would suggest that people can manipulate the forcing variable around the threshold, and suggests an indrect test of the identifying assumption that each individual has imprecise control over the assignment variable.
+
 ```{r}
 df %>%
   ggplot(aes(x=margin)) +
@@ -1042,11 +1049,13 @@ df %>%
 ### I-K Optimal Bandwith Local Linear Regression
 
 Run local linear regression on various bandwidths optimized using the Imbens-Kalyanaraman method, and then estimated with half that bandwidth, and finally twice that bandwidth.
+
 ```{r}
 rdmod <- RDestimate(change_pass ~ vote, data=df, cutpoint=50) 
 ```
 
 and plot the regression:
+
 ```{r}
 plot(rdmod, main='Regression Discontinuity',xlab='Vote',ylab='Change in PassRate')
 ```
@@ -1069,6 +1078,7 @@ stargazer(rdmod1, rdmod2, rdmod3, rdmod4, type='text', title='RDD Models with Di
 ### Different Subsets of Data
 
 If we have data on outcome variable prior to the treatment, then we can use this data to check whether the populations below and above the threshold are similar. We want the two populations to be clones of each other and so we want them to be similar not only interms of the unobservables but also the observables.
+
 ```{r}
 rdmod5 <- lm(change_pass ~ win + margin:win + margin:lose, data=df, subset=(vote<=85 & vote >= 15))
 rdmod6 <- lm(change_pass ~ win + margin:win + margin:lose, data=df, subset=(vote<=70 & vote >= 30))
@@ -1081,6 +1091,7 @@ If the RDD is to be valid, we don't want the coefficient to be significiant at t
 ### Different Bandwidths on Smoothing
 
 Results need to be robust to different bandwidths, and need to report results for both estimation types (polynomial in X and local inear regression). We also need to show that including higher order polynomials does not substantially affect our findings, and our results are not affected if we vary the window around the cutoff (stanard errors may go up but hopefully the point estimate doesnt change).
+
 ```{r}
 par(mfrow=c(2,2))
 g <-
@@ -1096,18 +1107,21 @@ g + geom_smooth(method='loess', span=0.1, aes(color=factor(win))) +
 ```
 
 Increase bandwith to 0.3.
+
 ```{r}
 g + geom_smooth(method='loess', span=0.3, aes(color=factor(win))) +
   labs(subtitle='Loess with Span 0.3')
 ```
 
 Increase bandwith to 0.5.
+
 ```{r}
 g + geom_smooth(method='loess', span=0.5, aes(color=factor(win))) +
   labs(subtitle='Loess with Span 0.5')
 ```
 
 Now use linear regression.
+
 ```{r}
 g + geom_smooth(method = 'lm', formula = y ~ splines::bs(x, 3), aes(color=factor(win))) +
   labs(subtitle='Cubic Polynomial')
@@ -1157,6 +1171,7 @@ DiD estimator is superior to Before-After estimator in one important way. BA est
 ## Data
 
 Our data examines the effect of workers' compensation on time out of work. It compares individuals injured before and after increases in the maximum weekly benefit amount. The increases examind in KY and MI raised the benefit amount for high earning individuals by approximately 50% while low earning individuals who were unaffected by the benefit maximum, did not experience a change in their incentives.
+
 ```{r}
 df <- read_dta('C:/Users/jihun/Downloads/applied_microeconometrics/INJURY.DTA')
 glimpse(df)
@@ -1177,6 +1192,7 @@ DiD's important assumption is that there is no other interaction between time an
 ## Fit Models and Check Parallel Trend Assumption
 
 I fit Before-After estimator for the treatment group on the subpopulation of highe earners in Kentucky, cross-sectional models, and finally DiD model.
+
 ```{r}
 # Get the Before-After estimator for the treatment group.
 BA_treatment_mod <- lm(ldurat~afchnge, data=df, subset=(highearn==1 & ky==1))
@@ -1249,6 +1265,7 @@ When T>2, DiD lends itself to a test for causality in the spirit of Granger (196
 In our dataset, we can collect one more period of data before the change, and then check whether the high-earners and the low-earners actually show a common time trend before the change.
 
 ### Synthetic Control Method
+
 In some cases, treatment and potential control groups do not follow parallel trends and DiD estimator would lead to biased estimates. The basic idea behind it is that a combination of units of ten provides a better comparison for the unit exposed to the intervention than any single unit alone. For instance, you can take a weighted average of other units as a synthetic control group.
 
 # Panel Data Methods
@@ -1286,6 +1303,7 @@ As opposed to DiD, we are considering data from two periods for the same individ
 ### Dataset 1: Wage Determinants
 
 This is a panel data of workers with two years of wage and its determinants on two periods: 1978 and 1985. 
+
 ```{r}
 df <- read_dta('C:/Users/jihun/Downloads/applied_microeconometrics/CPS78_85.dta')
 glimpse(df)
@@ -1296,6 +1314,7 @@ glimpse(df)
 We create two variables:
 1. y85educ12: years of education subtracted by 12
 2. llwage: inflation adjusted log-waged
+
 ```{r}
 df <-
   df %>%
@@ -1307,6 +1326,7 @@ glimpse(df)
 ## Fit Models: Pooled OLS
 
 We fit the follwowing models to estimate the causal effect of union membership, education, and gender.
+
 ```{r}
 pmod1 <- lm(lwage ~ y85 + educ + y85educ + exper + expersq + union + female + y85fem, data=df)
 pmod2 <- lm(lwage ~ y85 + educ + exper + expersq + union + female + y85fem + y85educ12, data=df)
@@ -1342,6 +1362,7 @@ If the fixed effects are correlated with the independent variables, pooled OLS g
 ## Dataset 2: Fatality Rates Across States
 
 This study design is aimed at investigating the causal effect of drunk driving laws on traffic fatalities. The data's observational unit is a year in a US state. It consists of 48 states and spans 7 year period from 1982 to 1988. Since all variables are observed for all entities and over all time periods, the panel is balanced. If there were missing data for at least one entity in at least one time period we would call the panel unbalanced. The key variables are traffic fatality rate (# of traffic deaths in that state in that year, per 10,000 state residents), tax on beer, and other variables such as legal drinking age, drunk driving laws, etc. 
+
 ```{r}
 data(Fatalities)
 # convert df into pdata.frame format with new indices
@@ -1361,6 +1382,7 @@ glimpse(df)
 ```
 
 When one only looks at the correlation between beer tax and fatality rate, there is a positive correlation. This is because we are not controlling for other factors such as quality of cars, roads, culture of drink-driving, traffic density, poverty, social problems and higher taxes, etc. These omitted variables are creating a bias on the causal effect. If all these unobserved variables are constant across time, panel data allows us to bypass the bias caused by them. 
+
 ```{r}
 ggplot(df, aes(x=beertax, y=fatal_rate)) +
   geom_point() +
@@ -1373,6 +1395,7 @@ ggplot(df, aes(x=beertax, y=fatal_rate)) +
 ```
 
 ## Fitting Panel Data Models
+
 1. Pooled OLS
 2. First Difference
 3. Fixed Effect on Individuals
@@ -1382,6 +1405,7 @@ ggplot(df, aes(x=beertax, y=fatal_rate)) +
 ## Pooled OLS
 
 Naive model of running OLS on data.
+
 ```{r}
 poolmod <- plm(fatal_rate ~ beertax + gsp + breath + jail + service + drinkage + dry + spirits, data=df, model='pooling')
 summary(poolmod)
@@ -1394,6 +1418,7 @@ We create new variables that represent the year-to-year change in each variable 
 ### First Difference Model (two-period: 1982 and 1988)
 
 Take a first difference across two time periods, and this will remove the effect of omitted variable. 
+
 ```{r}
 # subset the data
 Fatalities1982 <- subset(df, year == "1982")
@@ -1413,16 +1438,22 @@ fdmod <- plm(fatal_rate ~ beertax + gsp + breath + jail + service + drinkage + d
 summary(fdmod)
 ```
 
-### Identifying Assumptions:
+### Identifying Assumptions of First Difference Model:
 
 There are certain problems inherent to the First Difference Estimator and key identifying assumptions:
 
 1) Since we take out all the time-independent variation in the independent variables, we effectively reduce the amount of variation we can use in estimation, implying that estiation using first difference can become very imprecise and have higher standard error. This is a problem that can be solved as we increase sample size.
+
 2) However, attenuation bias from measurement error is irreducible and in fact amplifies because noise tends to be time variant. Measurement error introduces greater standard error and cause bias.
+
 3) We want strict exogeneity, and this assumption could be violated if we have omitted an important time-variant variable. This means future independent variable should not depend on current changes in the idiosyncatic errors. The omitted variable bias causes bias in the estimate. 
+
 4) We also need differenced errors to be uncorrelated for the standard errors and test statistics to be valid. Interestingly, uncorrelated original errors can have first differened errors that are in fact correlated over time. The serial correlation in the first differenced errors does not cause bias but the estimated standard errors are incorrect and can cause biass.
 
+#### Checking Multicollinearity 
+
 We need to make sure the fixed effect is uncorrelated with the independent variables or else the coefficient is biased.
+
 ```{r}
 subdf <- df[,c('fatal_rate','beertax','gsp','breath','jail','service','drinkage','dry','spirits')]
 print(ggcorr(subdf, method = c("everything", "pearson")))
@@ -1437,12 +1468,15 @@ Did we omit any important time varying variable? If we do, the strict exogeneity
 
 #### Testing for Serial Correlation
 
-When change in errors is uncorrelated over time, the standard errors and test statistics are valid. If there is a serial correlation, then the estimated standard errors are incorrect. 
+When change in errors is uncorrelated over time, the standard errors and test statistics are valid. If there is a serial correlation, then the estimated standard errors are incorrect. Serial correlation tests apply to macro panels with long time series. Not a problem in micro panels (with very few years).
+
 ```{r}
 pbgtest(fdmod) # null=no serial correlation
 ```
 
 #### Testing for Unit roots/stationarity
+
+The Dickey-Fuller test to check for stochastic trends.
 
 ```{r}
 adf.test(df$fatal_rate, k=2) # null hypothesis: unit roots are present
@@ -1457,6 +1491,7 @@ Just like First Difference, the model reduces the total amount of variation in t
 Time demeaning in Fixed Effect model implies we look at deviations in the variables from average for each individual over the period. On the other hand, FD implies that we look at period-to-period changes in the variables. Per-period changes may not be the same as deviations from the average over all time periods. Since both FE and FD are unbiased given the assumptions are true, we may choose between FE and FD depending on their relative efficiency. The efficiency in turn depends on the serial correlation in the idiosyncratic errors U_it. If they are serially uncorrelated, FE is more efficient. If first differenced errors are serially uncorrelated, FD is more efficient. In sum, the choice between FD and FE hinges on serial correlation of errors and first differenced errors. If T is large and N is small, FE can be very sensitive to violations of the classical fixed effect, and should not be used.
 
 The greatest benefit of FE model is that we do not have to assume that time-independent variables are uncorrelated with the independent variables of interest. plm() does not give us coefficients for fixed effects, but we can back them out using OLS. In effect, the FE model runs the pooled regression with a complete set of state dummy variables. 
+
 ```{r}
 fe_mod1 <- plm(fatal_rate ~ beertax + gsp + breath + jail + service + drinkage + dry + spirits, 
               data = df,
@@ -1466,6 +1501,7 @@ summary(fe_mod1)
 ```
 
 Controlling for variables that are constant across entities but vary over time can be done by including time fixed effects. The combined model allows to eliminate bias from unobservables that change over time but are constant over entities and it controls for factors that differ across entities but are constant over time. Such models can be estimated using the OLS algorithm that is implemented in R. Note that plm() uses the entity-demeaned OLS algorithm and thus does not report dummy coefficients.
+
 ```{r}
 fe_mod2 <- plm(fatal_rate ~ beertax + gsp + breath + jail + service + drinkage + dry + spirits, 
               data = df,
@@ -1475,6 +1511,7 @@ summary(fe_mod2)
 ```
 
 Control for heteroskedasticity.
+
 ```{r}
 # print summary using robust standard errors
 coeftest(fe_mod2, vcov. = vcovHC, type = "HC1")
@@ -1483,36 +1520,71 @@ coeftest(fe_mod2, vcov. = vcovHC, type = "HC1")
 ### Identifying Assumptions of Fixed Effect Model
 
 1. Strict exogeneity - We must assume strict exogeneity of the explanatory variables which implies that each error should be uncorrelated not only with the independent variables in the given period, but also with all the independent variables in all other periods. This is the key assumption for FE to give unbiased estimates.
+
 2. Uncorrelated errors gives correct standard errors.
+
 ```{r}
 pbgtest(fe_mod1) # null=no serial correlation
 ```
 
 We conclude that the estimated relationship between traffic fatalities and the real beer tax is not affected by omitted variable bias due to factors that are constant over time.
+
 ```{r}
 pbgtest(fe_mod2)
 ```
  
-### Robust Standard Errors for Twoway Fixed Effect Models
+3.Cross Sectional Dependence
+
+Testing contemporaneous correlation using both the Breusch-Pagan LM test of independence and Pasaran CD test
+
+According to Baltagi, cross-sectional dependence is a problem in macro panels with long time series. This is not much of a problem in micro panels (few years and large number of cases).
+
+The null hypothesis in the B-P/LM and Pasaran CD tests of independence is that residuals across entities are not correlated. B-P/LM and Pasaran CD (cross-sectional dependence) tests are used to test whether the residuals are correlated across entities. Cross-sectional dependence can lead to bias in tests results (also called contemporaneous correlation).
+
+```{r}
+pcdtest(fe_mod1, test = c("lm")) # The null is that there is not cross-sectional dependence
+```
+
+```{r}
+pcdtest(fe_mod2, test = c("cd")) # The null is that there is not cross-sectional dependence
+```
+ 
+### Heteroskedasticity Correction: Robust Standard Errors for Fixed Effect Models
 
 When there is both heteroskedasticity and autocorrelation, the so-called heteroskedasticity and autocorrelation-consistent (HAC) standard errors need to be used. Clustered standard errors belong to these type of standard errors. They allow for heteroskedasticity and autocorrelated errors within an entity but not correlation across entities.
+
+The –vcovHC– function estimates three heteroskedasticity-consistent covariance estimators:
+
+  - white1" - for general heteroskedasticity but no serial correlation. Recommended for random effects.
+  - white2" - is “white1” restricted to a common variance within groups. Recommended for random effects.
+  - arellano" - both heteroskedasticity and serial correlation. Recommended for fixed effects.
+
+The following options apply:
+
+  - HC0 - heteroskedasticity consistent. The default.
+  - HC1,HC2, HC3 – Recommended for small samples. HC3 gives less weight to influential observations.
+  - HC4 - small samples with influential observations HAC - heteroskedasticity and autocorrelation consistent (type ?vcovHAC for more details)
+  
 ```{r}
 coeftest(fe_mod2, vcov = vcovHC, type = "HC1")
 ```
 
 Use Arellano method.
+
 ```{r}
 coeftest(fe_mod2, vcovHC(fe_mod2,method='arellano')) 
 ```
 
 Use type 3 method.
+
 ```{r}
 coeftest(fe_mod2, vcovHC(fe_mod2, type='HC3')) 
 ```
 
-### Testing Time-fixed effects
+### Testing Time-Fixed Effects Are Needed
 
 Test for whether model needs time effects on the fixed effect model.
+
 ```{r}
 pFtest(fe_mod1, fe_mod2) # if the pvalue is low, then we dont need to use time-fixed effect
 ```
@@ -1522,31 +1594,35 @@ pFtest(fe_mod1, fe_mod2) # if the pvalue is low, then we dont need to use time-f
 If we assume that unobserved time-invariant variable is uncorrelated with the independent variable (unlike fixed effect and first difference model where we control for unobserved variable), then we should use a random effect model.
 
 RE model allows us to correct for the serial correlation caused by the fixed effects. It is part of larger family called Generalized Least Squares. When theta is equal to 0, it becomes pooled OLS estimator. When theta is 1, it becomes FE estimator. 
+
 ```{r}
 re_mod <- plm(fatal_rate ~ beertax + gsp + breath + jail + service + drinkage + dry + spirits, data=df, model='random')
 summary(re_mod)
 ```
 
-### Hausman Test
+### Random Effect vs Fixed Effect Model: Hausman Test
 
-Fixed Effect model v random effect model.
+The null hypothesis of this test is that errors are not correlated with the predictors. If the pvalue is low, then we need to use fixed effects.
+
 ```{r}
-phtest(fe_mod2, re_mod) # null hypothesis: errors are not correlated with the regressors
-# if pvalue is low, then we need to use fixed effects
+phtest(fe_mod2, re_mod) 
 ```
 
-## Testing for Random Effect: Breusch-Pagan Lagrange Multiplier
+### Random Effect vs Pooled OLS: Breusch-Pagan Lagrange Multiplier Test
 
-Is there a significant random effect?
+The null hypothesis in the LM test is that variances across entities is zero. This is, no significant difference across units (i.e. no panel effect).
+
 ```{r}
 plmtest(re_mod, type=c('bp')) # Breusch-Pagan Lagrange Multiplier for random effects; null is no panel effect (i.e. OLS better)
 ```
 
-### Putting It All Together: Pooled OLS, FD, FE, and RE
+Here we reject the null and conclude that random effects is appropriate. This is, evidence of significant differences across states, therefore we cannot run a simple OLS regression.
+
+## Putting It All Together: Pooled OLS, FD, FE, and RE
 
 We have two sources of variation in panel data: between and within variation. The difference in average fatality rates across states over a period of ten years is an example of between-variation. The variation in fatality rate from year to year for a given state is an example of within-variation. 
 
-1. Pooled OLS uses an unweighte average of the within and between variation.
+1. Pooled OLS uses an unweighted average of the within and between variation.
 2. FE only uses within-variation.
 3. RE uses both between and within variation, but weights these sources of variation in a different way compared to OLS. 
 
@@ -1555,6 +1631,7 @@ If the assumption that unobserved time-invariant variable A is uncorrelated with
 Standard errors from FD, FE, and RE will typically be correct, but RE will have lower standard errors since it also makes use of the between variation in the data. On the other hand, standard errors from pooled OLS will be incorrect and too low on average because we dont adjust for serial correlation in the error term.
 
 RE allows us to overcome problems with fixed effects. Unlike FE, RE allows us to estimate the effect of time independent variables. If covariance between X and A is zero, then RE is consistent and more efficient since the cross-sectional variation in the data is not thrown out. However, when covariance is non-zero, only FE is consistent. RE and FE differ in what is assumed by the intercept, and RE views this as randomly drawn or part of the error term. 
+
 ```{r}
 rob_se <- list(sqrt(diag(vcovHC(poolmod, type = "HC1"))),
                sqrt(diag(vcovHC(fdmod, type = "HC1"))),
